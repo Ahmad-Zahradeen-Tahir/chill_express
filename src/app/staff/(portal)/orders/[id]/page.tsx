@@ -19,7 +19,6 @@ import { AutoRefresh } from "@/components/ui/auto-refresh";
 import { OrderActions } from "@/components/portal/order-actions";
 import { OrderTools } from "./tools";
 import { ModifyOrder } from "./modify";
-import { MarkSeen } from "@/components/portal/mark-seen";
 
 const dt = (d: Date) => d.toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Lagos" });
 
@@ -44,7 +43,6 @@ export default async function StaffOrderDetail({ params }: { params: Promise<{ i
   return (
     <div>
       {live && <AutoRefresh seconds={10} />}
-      <MarkSeen orderId={o.id} />
       <Link href="/staff" className="inline-flex items-center gap-1 text-sm font-semibold text-ink-3 hover:text-ink"><ArrowLeft className="size-4" /> Queue</Link>
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <h1 className="font-display text-5xl font-extrabold uppercase leading-none">{o.reference}</h1>

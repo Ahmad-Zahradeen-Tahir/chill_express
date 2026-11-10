@@ -74,6 +74,7 @@ function visibilityFilter(ctx: StaffContext) {
   );
 }
 
+/** The user's notification inbox: only notifications they have not yet opened or cleared. */
 export async function listNotifications(ctx: StaffContext, limit = 50) {
   const rows = await db
     .select({
@@ -82,10 +83,10 @@ export async function listNotifications(ctx: StaffContext, limit = 50) {
     })
     .from(notification)
     .leftJoin(notificationRead, and(eq(notificationRead.notificationId, notification.id), eq(notificationRead.userId, ctx.userId)))
-    .where(visibilityFilter(ctx))
+    .where(and(visibilityFilter(ctx), isNull(notificationRead.readAt)))
     .orderBy(desc(notification.createdAt))
     .limit(limit);
-  return rows.map((r) => ({ ...r.n, read: !!r.readAt }));
+  return rows.map((r) => r.n);
 }
 
 export async function unreadCount(ctx: StaffContext) {
@@ -106,23 +107,23 @@ export async function unreadCount(ctx: StaffContext) {
   return r?.c ?? 0;
 }
 
+/** "Mark all read": clears every visible notification from this user's inbox (single INSERT … SELECT). */
 export async function markAllRead(ctx: StaffContext) {
-  const rows = await db.select({ id: notification.id }).from(notification).where(visibilityFilter(ctx));
-  if (!rows.length) return;
   await db
     .insert(notificationRead)
-    .values(rows.map((r) => ({ notificationId: r.id, userId: ctx.userId })))
+    .select(
+      db
+        .select({ notificationId: notification.id, userId: sql<string>`${ctx.userId}`.as("user_id"), readAt: sql<Date>`now()`.as("read_at") })
+        .from(notification)
+        .where(visibilityFilter(ctx)),
+    )
     .onConflictDoNothing();
 }
 
-/** Mark specific notifications (and/or every notification about one order) read for this user. Only visible ones are touched. */
-export async function markRead(ctx: StaffContext, sel: { ids?: string[]; orderId?: string }) {
-  const target = or(
-    sel.ids?.length ? inArray(notification.id, sel.ids) : undefined,
-    sel.orderId ? eq(notification.orderId, sel.orderId) : undefined,
-  );
-  if (!target) return 0;
-  const rows = await db.select({ id: notification.id }).from(notification).where(and(visibilityFilter(ctx), target));
+/** Mark specific notifications read for this user (only ones they can see). */
+export async function markRead(ctx: StaffContext, ids: string[]) {
+  if (!ids.length) return 0;
+  const rows = await db.select({ id: notification.id }).from(notification).where(and(visibilityFilter(ctx), inArray(notification.id, ids)));
   if (!rows.length) return 0;
   const res = await db
     .insert(notificationRead)

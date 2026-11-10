@@ -103,15 +103,13 @@ export async function markNotificationsRead() {
   revalidatePath("/staff", "layout");
 }
 
-const seenSchema = z.object({ ids: z.array(z.uuid()).max(200).optional(), orderId: z.uuid().optional() });
-
-/** Called when a user opens the notifications page or an order: clears those notifications from their unread list. */
-export async function markNotificationsSeen(input: { ids?: string[]; orderId?: string }): Promise<number> {
+/** Called when a user clicks a notification: marks it read, which removes it from their inbox. */
+export async function openNotification(id: string): Promise<number> {
   const ctx = await getStaff();
   if (!ctx) return 0;
-  const parsed = seenSchema.safeParse(input);
+  const parsed = z.uuid().safeParse(id);
   if (!parsed.success) return 0;
-  const n = await markRead(ctx, parsed.data);
+  const n = await markRead(ctx, [parsed.data]);
   if (n) revalidatePath("/staff", "layout");
   return n;
 }
