@@ -20,12 +20,15 @@ describe("order state machine", () => {
     expect(availableActions("PREPARING", "PICKUP")).not.toContain("out_for_delivery");
   });
   it("terminal states are final", () => {
-    for (const s of ["COMPLETED", "REJECTED", "CANCELLED"] as const) {
+    for (const s of ["COMPLETED", "EXPIRED"] as const) {
       expect(availableActions(s, "PICKUP")).toEqual([]);
     }
   });
-  it("only pending orders can be approved/rejected", () => {
-    expect(availableActions("PENDING_APPROVAL", "PICKUP").sort()).toEqual(["approve", "reject"]);
+  it("pending orders can only be approved (no reject or cancel exists)", () => {
+    expect(availableActions("PENDING_APPROVAL", "PICKUP")).toEqual(["approve"]);
+    for (const s of ["CONFIRMED", "PREPARING", "AWAITING_ADDITIONAL_PAYMENT"] as const) {
+      expect(availableActions(s, "DELIVERY")).not.toContain("cancel");
+    }
     expect(availableActions("CONFIRMED", "PICKUP")).not.toContain("approve");
   });
 });

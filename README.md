@@ -53,13 +53,13 @@ Safeguards:
 - **Amount checks.** The verified amount and currency must match what the server requested.
 - **Idempotent.** A conditional `UPDATE … WHERE status <> 'SUCCESS'` means a payment is only ever processed once.
 - **Signed webhooks.** Signatures are HMAC-SHA512 and compared in constant time; duplicate deliveries are stored once and ignored.
-- **Refunds.** Rejecting or cancelling an order, or a modification that lowers the total, creates refunds through the Paystack Refund API. A refund is only marked `REFUNDED` when Paystack reports it as processed (via webhook or a fetched status).
+- **No reject, cancel or refunds.** Paid orders can only be approved and moved through the kitchen workflow to completion. A modification that lowers the total just changes the order; money is settled with the customer outside the system. Duplicate or late payments raise a staff alert for manual handling.
 - **Price increases.** A modification that raises the total puts the order on hold (`AWAITING_ADDITIONAL_PAYMENT`) until the extra Paystack payment is verified.
 
 ### Payment modes (`PAYMENTS_DRIVER`)
 
 - `paystack`: real Paystack (use `sk_test_…` keys for the demo). Set `PAYSTACK_SECRET_KEY` and `PAYSTACK_PUBLIC_KEY`.
-- `dev-sim`: **a clearly-labelled simulator** used until Paystack keys are available. It goes through the same verification, webhook and refund code. Every page shows a "DEMO MODE — payments are SIMULATED" banner. It refuses to run in a production build unless `ALLOW_SIMULATED_PAYMENTS=true`, which must never be set on the live server.
+- `dev-sim`: **a clearly-labelled simulator** used until Paystack keys are available. It goes through the same verification and webhook code. Every page shows a "DEMO MODE — payments are SIMULATED" banner. It refuses to run in a production build unless `ALLOW_SIMULATED_PAYMENTS=true`, which must never be set on the live server.
 
 ### Switching the demo to Paystack test mode
 
@@ -80,7 +80,7 @@ Even without webhooks, payments are verified on the redirect. Run `npm run recon
 | `npm run demo:start` | Build + start production server |
 | `npm run db:generate` / `db:migrate` | Drizzle migrations |
 | `npm run db:seed` / `db:reseed` | Seed / wipe everything and reseed |
-| `npm run reconcile` | Re-verify pending payments and refunds, expire unpaid orders (run from cron in production) |
+| `npm run reconcile` | Re-verify pending payments, expire unpaid orders (run from cron in production) |
 | `npm test` | Unit tests (pricing, state machine, permissions, webhook signatures) |
 | `npm run test:e2e` | Playwright end-to-end tests (needs the app running on :3000 with the seed loaded) |
 | `npm run typecheck` / `npm run lint` | Static checks |
@@ -91,17 +91,17 @@ Even without webhooks, payments are verified on the redirect. Run `npm run recon
 - **Money:** stored and computed as integer **kobo**. Clients send only product ids, option ids and quantities. Every price is computed on the server (`src/server/services/pricing-core.ts`), and order lines snapshot the price paid.
 - **Authorization:** every server action and route calls `requirePermission(permission, { branchId })` in `src/server/auth/guard.ts`. It combines role defaults with per-person overrides, and staff are limited to their assigned branches (central manager and CEO see all branches). Hiding navigation items is cosmetic only.
 - **Order state machine:** `src/server/services/order-state.ts` is the only place legal transitions are defined. Updates use optimistic checks so two staff cannot approve the same order twice.
-- **Audit:** approvals, rejections, modifications, refunds, price and menu changes, staff changes and exports are all written to `audit_log`.
+- **Audit:** approvals, status changes, modifications, price and menu changes, staff changes and exports are all written to `audit_log`.
 - **Notifications:** in-app notifications for staff are scoped by permission and branch. Email and WhatsApp channels exist as interfaces, but **no provider is configured**: outbound messages are recorded as `NOT_CONFIGURED`, and nothing claims to have been sent.
 - **Hosting:** host-neutral, running as a plain Node server (`output: "standalone"`). Uploads go to local disk (`UPLOAD_DIR`) and cron calls a secured route. See `docs/DEPLOY-HOSTINGER.md`.
 
 ```
 src/app/(customer)     public site: home, menu, checkout, order tracking, account
-src/app/staff          staff portal: live queue, orders, availability, notifications
+src/app/staff          staff portal: live queue, orders, notifications
 src/app/admin          CEO dashboard: analytics, reports, menu, branches, staff, audit
 src/app/api            auth, Paystack callback + webhook, reports, uploads, cron
 src/server/db          Drizzle schema, migrations config, seed (official menu)
-src/server/services    pricing, orders, payments, refunds, analytics, reports …
+src/server/services    pricing, orders, payments, analytics, reports …
 src/server/paystack    Paystack client, simulator, signature verification
 tests/unit, tests/e2e  Vitest and Playwright suites
 ```

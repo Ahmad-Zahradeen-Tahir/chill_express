@@ -22,9 +22,9 @@ async function orderRows(s: Scope, r: Range) {
   if (s.branchIds !== null) parts.push(s.branchIds.length ? sql`o.branch_id IN (${sql.join(s.branchIds.map((b) => sql`${b}::uuid`), sql`, `)})` : sql`false`);
   if (!s.includeDemo) parts.push(sql`o.is_demo = false`);
   return (
-    await db.execute<{ reference: string; created_at: Date; branch: string; type: string; status: OrderStatus; customer: string; phone: string; items: number; total: number; paid: number; refunded: number; is_demo: boolean }>(sql`
+    await db.execute<{ reference: string; created_at: Date; branch: string; type: string; status: OrderStatus; customer: string; phone: string; items: number; total: number; paid: number; is_demo: boolean }>(sql`
       SELECT o.reference, o.created_at, b.name AS branch, o.type, o.status, o.customer_name AS customer, o.customer_phone AS phone,
-        (SELECT coalesce(sum(quantity),0) FROM order_item WHERE order_id=o.id)::int AS items, o.total_kobo AS total, o.paid_kobo AS paid, o.refunded_kobo AS refunded, o.is_demo
+        (SELECT coalesce(sum(quantity),0) FROM order_item WHERE order_id=o.id)::int AS items, o.total_kobo AS total, o.paid_kobo AS paid, o.is_demo
       FROM "order" o JOIN branch b ON b.id=o.branch_id WHERE ${sql.join(parts, sql` AND `)} ORDER BY o.created_at DESC LIMIT 20000`)
   ).rows;
 }
@@ -96,19 +96,15 @@ export async function reportToXlsx(d: ReportData): Promise<Buffer> {
     ["Generated", fmtDateTime(d.generatedAt)],
     ["Includes demonstration data", d.includesDemo ? "YES — seeded demo orders are included" : "No"],
     [],
-    ["Gross paid sales (verified payments)", n(d.overview.grossKobo)],
-    ["Refunds (provider-confirmed)", n(d.overview.refundsKobo)],
-    ["Net revenue", n(d.overview.netKobo)],
+    ["Sales (verified payments)", n(d.overview.grossKobo)],
     ["Average order value", n(d.overview.aovKobo)],
     ["Total orders (incl. unpaid attempts)", d.overview.totalOrders],
     ["Paid orders", d.overview.paidOrders],
     ["Completed orders", d.overview.completed],
-    ["Cancelled orders", d.overview.cancelled],
-    ["Rejected orders", d.overview.rejected],
     ["Unpaid / abandoned (not revenue)", d.overview.unpaidOrders],
   ]);
   sum.getRow(1).font = { bold: true, size: 14 };
-  [7, 8, 9, 10].forEach((r) => (sum.getCell(`B${r}`).numFmt = NAIRA_FMT));
+  [7, 8].forEach((r) => (sum.getCell(`B${r}`).numFmt = NAIRA_FMT));
   sum.getColumn(1).width = 42;
   sum.getColumn(2).width = 40;
   if (d.ops) {
@@ -120,26 +116,21 @@ export async function reportToXlsx(d: ReportData): Promise<Buffer> {
   const br = wb.addWorksheet("Branches");
   head(br, [
     { header: "Branch", key: "name", width: 20 },
-    { header: "Gross", key: "gross", width: 16, money: true },
-    { header: "Refunds", key: "refunds", width: 16, money: true },
-    { header: "Net", key: "net", width: 16, money: true },
+    { header: "Sales", key: "gross", width: 16, money: true },
     { header: "Paid orders", key: "orders", width: 12 },
     { header: "Completed", key: "completed", width: 12 },
-    { header: "Cancelled/rejected", key: "cancelled", width: 18 },
     { header: "Avg order", key: "aov", width: 14, money: true },
   ]);
-  d.branches.forEach((b) => br.addRow({ name: b.name, gross: n(b.grossKobo), refunds: n(b.refundsKobo), net: n(b.netKobo), orders: b.orders, completed: b.completed, cancelled: b.cancelled, aov: n(b.aovKobo) }));
+  d.branches.forEach((b) => br.addRow({ name: b.name, gross: n(b.grossKobo), orders: b.orders, completed: b.completed, aov: n(b.aovKobo) }));
 
   if (d.type === "sales" || d.type === "operations") {
     const t = wb.addWorksheet(d.trendUnit === "hour" ? "Hourly" : "Daily");
     head(t, [
       { header: d.trendUnit === "hour" ? "Hour" : "Date", key: "bucket", width: 14 },
-      { header: "Gross", key: "gross", width: 16, money: true },
-      { header: "Refunds", key: "refunds", width: 16, money: true },
-      { header: "Net", key: "net", width: 16, money: true },
+      { header: "Sales", key: "gross", width: 16, money: true },
       { header: "Paid orders", key: "orders", width: 12 },
     ]);
-    d.trend.forEach((p) => t.addRow({ bucket: p.bucket, gross: n(p.gross), refunds: n(p.refunds), net: n(p.net), orders: p.orders }));
+    d.trend.forEach((p) => t.addRow({ bucket: p.bucket, gross: n(p.gross), orders: p.orders }));
   }
 
   const pr = wb.addWorksheet("Products");
@@ -174,11 +165,10 @@ export async function reportToXlsx(d: ReportData): Promise<Buffer> {
       { header: "Items", key: "items", width: 8 },
       { header: "Total", key: "total", width: 14, money: true },
       { header: "Paid", key: "paid", width: 14, money: true },
-      { header: "Refunded", key: "refunded", width: 14, money: true },
       { header: "Demo", key: "demo", width: 8 },
     ]);
     d.orders.forEach((r) =>
-      o.addRow({ ...r, placed: fmtDateTime(new Date(r.created_at)), status: STATUS_LABELS[r.status], total: n(r.total), paid: n(r.paid), refunded: n(r.refunded), demo: r.is_demo ? "yes" : "" }),
+      o.addRow({ ...r, placed: fmtDateTime(new Date(r.created_at)), status: STATUS_LABELS[r.status], total: n(r.total), paid: n(r.paid), demo: r.is_demo ? "yes" : "" }),
     );
   }
   return Buffer.from(await wb.xlsx.writeBuffer());

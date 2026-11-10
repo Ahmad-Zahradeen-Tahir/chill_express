@@ -3,11 +3,8 @@ import type { Role } from "@/server/db/schema/enums";
 export const PERMISSIONS = {
   "orders.view": "View orders and the order queue",
   "orders.approve": "Approve paid orders",
-  "orders.reject": "Reject paid orders (starts a refund)",
   "orders.update_status": "Move orders through the kitchen workflow",
   "orders.modify": "Modify order items and customer details",
-  "orders.cancel": "Cancel confirmed orders (starts a refund)",
-  "refunds.initiate": "Initiate and retry Paystack refunds",
   "menu.availability": "Toggle product availability for own branch",
   "menu.manage": "Create and edit categories, products, prices and options",
   "branches.manage": "Edit branch details, hours and ordering settings",
@@ -25,15 +22,12 @@ export type StaffRole = Exclude<Role, "CUSTOMER">;
 const CASHIER: Permission[] = [
   "orders.view",
   "orders.approve",
-  "orders.reject",
   "orders.update_status",
   "notifications.view",
 ];
 const BRANCH_MANAGER: Permission[] = [
   ...CASHIER,
   "orders.modify",
-  "orders.cancel",
-  "refunds.initiate",
   "menu.availability",
   "analytics.view",
   "reports.export",

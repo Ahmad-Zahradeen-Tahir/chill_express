@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { addSimple, checkout, chooseBranch, env, openStaffOrder, simulatePay, staffLogin } from "./helpers";
+import { addSimple, checkout, chooseBranch, openStaffOrder, simulatePay, staffLogin } from "./helpers";
 
 test("modification that raises the total holds the order until the extra Paystack payment is verified", async ({ browser }) => {
   const customer = await browser.newPage();
@@ -34,7 +34,7 @@ test("modification that raises the total holds the order until the extra Paystac
   await expect(mgr.getByRole("button", { name: "Start preparing" })).toBeVisible();
 });
 
-test("modification that lowers the total starts a partial refund", async ({ browser, request }) => {
+test("modification that lowers the total is applied immediately, with no refund", async ({ browser }) => {
   const customer = await browser.newPage();
   await chooseBranch(customer, "Gombole Road");
   await addSimple(customer, "Soda");
@@ -47,14 +47,14 @@ test("modification that lowers the total starts a partial refund", async ({ brow
   await openStaffOrder(mgr, ref);
   await mgr.getByRole("button", { name: "Edit" }).click();
   await mgr.getByRole("button", { name: "Remove item" }).last().click();
-  await expect(mgr.getByText("will be refunded through Paystack")).toBeVisible();
+  await expect(mgr.getByText("No money is returned automatically")).toBeVisible();
   await mgr.getByPlaceholder("e.g. Customer called to add a soda").fill("Ice cream machine down");
   await mgr.getByRole("button", { name: "Save changes" }).click();
-  await expect(mgr.getByText("Refund pending").first()).toBeVisible();
-  await new Promise((r) => setTimeout(r, 6000));
-  await request.post("/api/cron/reconcile", { headers: { authorization: `Bearer ${env.CRON_SECRET}` } });
+  await expect(mgr.getByText("Changes saved.")).toBeVisible();
   await mgr.reload();
-  await expect(mgr.getByText("Refunded", { exact: true }).first()).toBeVisible();
+  await expect(mgr.getByText("Pending approval").first()).toBeVisible(); // not held for payment
+  await expect(mgr.locator("dt", { hasText: /^Order total$/ }).first().locator("xpath=following-sibling::dd[1]")).toHaveText("₦1,500"); // 4,000 − ice cream
+  await expect(mgr.getByText(/refund/i)).toHaveCount(0);
 });
 
 test("CEO creates, suspends and reactivates staff; suspended staff cannot sign in", async ({ browser }) => {

@@ -21,7 +21,7 @@ const s = StyleSheet.create({
   warn: { backgroundColor: "#FFF8E8", borderLeft: `3 solid ${ORANGE}`, padding: 6, marginBottom: 10, fontSize: 8.5 },
   h2: { fontSize: 12, fontFamily: "Helvetica-Bold", marginTop: 14, marginBottom: 6, color: RED },
   kpis: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  kpi: { width: "23.8%", border: "1 solid #ECE4DC", borderRadius: 4, padding: 6 },
+  kpi: { width: "32.2%", border: "1 solid #ECE4DC", borderRadius: 4, padding: 6 },
   kpiL: { fontSize: 7, color: MUTED, textTransform: "uppercase" },
   kpiV: { fontSize: 12, fontFamily: "Helvetica-Bold", marginTop: 2 },
   tr: { flexDirection: "row", borderBottom: "0.5 solid #ECE4DC", paddingVertical: 3 },
@@ -61,41 +61,39 @@ function ReportDoc({ d }: { d: ReportData }) {
         {d.includesDemo && <Text style={s.warn}>Includes DEMONSTRATION data: seeded demo orders are included in these figures. Generate with demo data excluded for real trading results.</Text>}
         <View style={s.kpis}>
           {[
-            ["Gross paid sales", formatNaira(o.grossKobo)],
-            ["Refunds", formatNaira(o.refundsKobo)],
-            ["Net revenue", formatNaira(o.netKobo)],
+            ["Sales", formatNaira(o.grossKobo)],
             ["Average order", formatNaira(o.aovKobo)],
             ["Total orders", o.totalOrders],
             ["Paid orders", o.paidOrders],
             ["Completed", o.completed],
-            ["Cancelled / rejected", `${o.cancelled} / ${o.rejected}`],
+            ["Pending approval now", o.pendingApprovals],
           ].map(([l, v]) => (
             <View key={String(l)} style={s.kpi}><Text style={s.kpiL}>{l}</Text><Text style={s.kpiV}>{String(v)}</Text></View>
           ))}
         </View>
-        <Text style={{ fontSize: 7, color: MUTED, marginTop: 4 }}>Gross = payments verified with the payment provider. Refunds = refunds confirmed by the provider. Unpaid, failed and abandoned checkouts ({o.unpaidOrders}) are never counted as revenue.</Text>
+        <Text style={{ fontSize: 7, color: MUTED, marginTop: 4 }}>Sales = payments verified with the payment provider. Unpaid, failed and abandoned checkouts ({o.unpaidOrders}) are never counted as revenue.</Text>
 
         {d.ops && (
           <>
             <Text style={s.h2}>Operations</Text>
             <Text>Average time from payment to staff approval: {d.ops.avgApprovalMinutes ?? "n/a"} min</Text>
             <Text>Average time from approval to completion: {d.ops.avgFulfilmentMinutes ?? "n/a"} min</Text>
-            <Text>Orders awaiting approval right now: {o.pendingApprovals} · refunds in progress or failed: {o.openRefunds} ({formatNaira(o.openRefundsKobo)})</Text>
+            <Text>Orders awaiting approval right now: {o.pendingApprovals}</Text>
           </>
         )}
 
         <Text style={s.h2}>Branch comparison</Text>
         <Table
-          cols={[{ label: "Branch", w: 16 }, { label: "Gross", w: 15, align: "right" }, { label: "Refunds", w: 13, align: "right" }, { label: "Net", w: 15, align: "right" }, { label: "Orders", w: 8, align: "right" }, { label: "Completed", w: 11, align: "right" }, { label: "Canc./rej.", w: 10, align: "right" }, { label: "AOV", w: 12, align: "right" }]}
-          rows={d.branches.map((b) => [b.name, formatNaira(b.grossKobo), formatNaira(b.refundsKobo), formatNaira(b.netKobo), b.orders, b.completed, b.cancelled, formatNaira(b.aovKobo)])}
+          cols={[{ label: "Branch", w: 24 }, { label: "Sales", w: 20, align: "right" }, { label: "Orders", w: 12, align: "right" }, { label: "Completed", w: 20, align: "right" }, { label: "AOV", w: 24, align: "right" }]}
+          rows={d.branches.map((b) => [b.name, formatNaira(b.grossKobo), b.orders, b.completed, formatNaira(b.aovKobo)])}
         />
 
         {(d.type === "sales" || d.type === "operations") && (
           <>
             <Text style={s.h2}>{d.trendUnit === "hour" ? "Hourly" : "Daily"} sales</Text>
             <Table
-              cols={[{ label: d.trendUnit === "hour" ? "Hour" : "Date", w: 25 }, { label: "Gross", w: 20, align: "right" }, { label: "Refunds", w: 20, align: "right" }, { label: "Net", w: 20, align: "right" }, { label: "Orders", w: 15, align: "right" }]}
-              rows={d.trend.map((p) => [p.bucket, formatNaira(p.gross), formatNaira(p.refunds), formatNaira(p.net), p.orders])}
+              cols={[{ label: d.trendUnit === "hour" ? "Hour" : "Date", w: 25 }, { label: "Sales", w: 45, align: "right" }, { label: "Orders", w: 30, align: "right" }]}
+              rows={d.trend.map((p) => [p.bucket, formatNaira(p.gross), p.orders])}
             />
           </>
         )}

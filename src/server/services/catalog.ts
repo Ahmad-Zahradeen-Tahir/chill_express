@@ -158,13 +158,13 @@ export async function getBranchBySlug(slug: string) {
   return db.query.branch.findFirst({ where: eq(branch.slug, slug) });
 }
 
-/** Most-ordered products over the last N days, from paid (non-refunded) orders. */
+/** Most-ordered products over the last N days, from paid orders. */
 export async function getPopularProductIds(days = 30, limit = 4): Promise<string[]> {
   const { sql: s } = await import("drizzle-orm");
   const res = await db.execute<{ product_id: string }>(s`
     SELECT oi.product_id, SUM(oi.quantity) AS qty
     FROM order_item oi JOIN "order" o ON o.id = oi.order_id
-    WHERE o.payment_status = 'PAID' AND o.status NOT IN ('REJECTED','CANCELLED')
+    WHERE o.payment_status = 'PAID'
       AND o.created_at > now() - make_interval(days => ${days}) AND oi.product_id IS NOT NULL
     GROUP BY oi.product_id ORDER BY qty DESC LIMIT ${limit}`);
   return res.rows.map((r) => r.product_id);

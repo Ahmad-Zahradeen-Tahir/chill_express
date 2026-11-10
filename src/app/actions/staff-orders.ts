@@ -2,11 +2,10 @@
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db";
-import { refund, order } from "@/server/db/schema";
+import { order } from "@/server/db/schema";
 import { AuthzError, requirePermission, getStaff } from "@/server/auth/guard";
 import { modifyOrder, modifySchema, OrderActionError, performStaffAction, withdrawModification } from "@/server/services/staff-orders";
 import type { StaffAction } from "@/server/services/order-state";
-import { retryRefund, reconcileRefunds } from "@/server/services/refunds";
 import { reconcilePayments, confirmPayment } from "@/server/services/payments";
 import { markAllRead, markRead, unreadCount } from "@/server/services/notifications";
 import { z } from "zod";
@@ -20,9 +19,9 @@ function fail(e: unknown): R {
   return { ok: false, error: "Something went wrong. Please try again." };
 }
 
-export async function staffOrderAction(orderId: string, action: StaffAction, note?: string): Promise<R> {
+export async function staffOrderAction(orderId: string, action: StaffAction): Promise<R> {
   try {
-    await performStaffAction(orderId, action, note);
+    await performStaffAction(orderId, action);
     revalidatePath("/staff", "layout");
     return { ok: true };
   } catch (e) {
@@ -37,7 +36,7 @@ export async function staffModifyOrder(raw: unknown): Promise<R> {
     const r = await modifyOrder(p.data);
     revalidatePath("/staff", "layout");
     const msg =
-      r.outcome === "applied" ? "Changes saved." : r.outcome === "refund_started" ? `Changes saved. Refund of ₦${(-r.deltaKobo / 100).toLocaleString()} started.` : `Order held until the customer pays the extra ₦${(r.deltaKobo / 100).toLocaleString()}.`;
+      r.outcome === "applied" ? "Changes saved." : `Order held until the customer pays the extra ₦${(r.deltaKobo / 100).toLocaleString()}.`;
     return { ok: true, message: msg, paymentUrl: r.paymentUrl };
   } catch (e) {
     return fail(e);
@@ -54,21 +53,7 @@ export async function staffWithdrawModification(orderId: string): Promise<R> {
   }
 }
 
-export async function staffRetryRefund(refundId: string): Promise<R> {
-  try {
-    const r = await db.query.refund.findFirst({ where: eq(refund.id, refundId) });
-    if (!r) return { ok: false, error: "Refund not found" };
-    const o = await db.query.order.findFirst({ where: eq(order.id, r.orderId) });
-    const ctx = await requirePermission("refunds.initiate", { branchId: o?.branchId });
-    await retryRefund(refundId, ctx.userId);
-    revalidatePath("/staff", "layout");
-    return { ok: true };
-  } catch (e) {
-    return fail(e);
-  }
-}
-
-/** Re-check payment & refund state with the provider for one order (or all stale ones). */
+/** Re-check payment state with the provider for one order. */
 export async function staffRecheckOrder(orderId: string): Promise<R> {
   try {
     const o = await db.query.order.findFirst({ where: eq(order.id, orderId), with: undefined });
@@ -76,7 +61,6 @@ export async function staffRecheckOrder(orderId: string): Promise<R> {
     await requirePermission("orders.view", { branchId: o.branchId });
     const pays = await db.query.payment.findMany({ where: (p, { eq: e }) => e(p.orderId, o.id) });
     for (const p of pays) if (p.status === "INITIALIZED" && p.provider !== "DEMO_SEED") await confirmPayment(p.reference, "staff-recheck").catch(() => null);
-    await reconcileRefunds();
     revalidatePath("/staff", "layout");
     return { ok: true, message: "Re-checked with the payment provider." };
   } catch (e) {
@@ -86,11 +70,10 @@ export async function staffRecheckOrder(orderId: string): Promise<R> {
 
 export async function staffReconcileAll(): Promise<R> {
   try {
-    await requirePermission("refunds.initiate");
+    await requirePermission("orders.modify");
     const p = await reconcilePayments();
-    const r = await reconcileRefunds();
     revalidatePath("/staff", "layout");
-    return { ok: true, message: `Payments checked: ${p.checked} (confirmed ${p.confirmed}, expired ${p.expired}). Refunds checked: ${r.checked}.` };
+    return { ok: true, message: `Payments checked: ${p.checked} (confirmed ${p.confirmed}, expired ${p.expired}).` };
   } catch (e) {
     return fail(e);
   }

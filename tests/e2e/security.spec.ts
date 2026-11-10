@@ -2,7 +2,7 @@ import { createHmac } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { addSimple, checkout, chooseBranch, env, openStaffOrder, simulatePay, staffLogin } from "./helpers";
 
-test("rejected delivery order is refunded only after the provider confirms", async ({ browser, request }) => {
+test("delivery order has no reject or cancel option anywhere; approval moves it on", async ({ browser }) => {
   const customer = await browser.newPage();
   await chooseBranch(customer, "Lagos Street");
   await addSimple(customer, "Frosty Chillerz");
@@ -11,32 +11,29 @@ test("rejected delivery order is refunded only after the provider confirms", asy
   const ref = await simulatePay(customer, "success");
 
   const staff = await browser.newPage();
-  await staffLogin(staff, "lagos.cashier@demo.chillexpress.local");
+  await staffLogin(staff, "lagos.manager@demo.chillexpress.local");
   await openStaffOrder(staff, ref);
-  await staff.getByRole("button", { name: "Reject" }).click();
-  await staff.getByRole("button", { name: "Item out of stock" }).click();
-  await staff.getByRole("button", { name: "Confirm reject" }).click();
-  await expect(staff.getByText("Rejected").first()).toBeVisible();
-  await expect(staff.getByText("Refund pending").first()).toBeVisible(); // not "Refunded" yet
+  await expect(staff.getByRole("button", { name: /reject|cancel/i })).toHaveCount(0);
+  await staff.getByRole("button", { name: "Approve" }).click();
+  await expect(staff.getByRole("button", { name: "Start preparing" })).toBeVisible();
+  await expect(staff.getByRole("button", { name: /reject|cancel/i })).toHaveCount(0);
 
-  await customer.reload();
-  await expect(customer.getByText("Your payment is being refunded")).toBeVisible();
-
-  // Simulated provider settles after ~5s; reconciliation fetches the provider status.
-  await new Promise((r) => setTimeout(r, 6000));
-  const rec = await request.post("/api/cron/reconcile", { headers: { authorization: `Bearer ${env.CRON_SECRET}` } });
-  expect(rec.status()).toBe(200);
-  await staff.reload();
-  await expect(staff.getByText("Refunded", { exact: true }).first()).toBeVisible();
+  // Filters no longer offer Rejected / Cancelled statuses.
+  await staff.goto("/staff/orders");
+  await expect(staff.locator("select[name=s] option", { hasText: /Rejected|Cancelled/ })).toHaveCount(0);
 });
 
 test("unavailable products cannot be ordered", async ({ browser }) => {
   const mgr = await browser.newPage();
   await staffLogin(mgr, "gombole.manager@demo.chillexpress.local");
-  await mgr.goto("/staff/availability");
-  const row = mgr.getByRole("row", { name: /Soda/ });
-  await row.getByRole("switch").click();
-  await expect(row.getByRole("switch")).toHaveText("Sold out");
+  await mgr.goto("/admin/menu");
+  // Branch manager: only their own branch's switch, and no editing controls.
+  await expect(mgr.getByRole("link", { name: "New product" })).toHaveCount(0);
+  await expect(mgr.getByRole("switch", { name: "Lagos Street availability" })).toHaveCount(0);
+  const row = mgr.getByRole("listitem").filter({ hasText: /^Soda/ });
+  const sw = row.getByRole("switch", { name: "Gombole Road availability" });
+  await sw.click();
+  await expect(sw).toContainText("Sold out");
 
   const customer = await browser.newPage();
   await chooseBranch(customer, "Gombole Road");
@@ -45,8 +42,10 @@ test("unavailable products cannot be ordered", async ({ browser }) => {
   await chooseBranch(customer, "Lagos Street");
   await expect(customer.getByRole("button", { name: "Add Soda" })).toBeEnabled();
 
-  await row.getByRole("switch").click(); // restore
-  await expect(row.getByRole("switch")).toHaveText("Available");
+  await mgr.reload();
+  await expect(sw).toContainText("Sold out"); // persisted
+  await sw.click(); // restore
+  await expect(sw).toContainText("Available");
 });
 
 test("branch and role permissions are enforced on the server", async ({ browser, request }) => {

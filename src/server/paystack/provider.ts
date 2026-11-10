@@ -11,12 +11,6 @@ export type VerifyResult = {
   raw: unknown;
 };
 
-export type RefundResult = {
-  refundId: string | null;
-  status: "pending" | "processing" | "processed" | "failed";
-  raw: unknown;
-};
-
 export interface PaymentProvider {
   readonly name: "PAYSTACK" | "DEV_SIM";
   initialize(input: {
@@ -27,8 +21,6 @@ export interface PaymentProvider {
     metadata: Record<string, unknown>;
   }): Promise<{ authorizationUrl: string }>;
   verify(reference: string): Promise<VerifyResult>;
-  refund(input: { transactionReference: string; amountKobo: number; note: string }): Promise<RefundResult>;
-  fetchRefund(refundId: string): Promise<RefundResult>;
   webhookSecret(): string;
 }
 
@@ -37,19 +29,6 @@ export class PaymentProviderError extends Error {}
 // ---------------- Paystack (real) ----------------
 
 const PAYSTACK_BASE = "https://api.paystack.co";
-
-function mapRefundStatus(s: string | undefined): RefundResult["status"] {
-  switch (s) {
-    case "processed":
-      return "processed";
-    case "processing":
-      return "processing";
-    case "failed":
-      return "failed";
-    default:
-      return "pending"; // pending, needs-attention, unknown -> not yet refunded
-  }
-}
 
 class PaystackProvider implements PaymentProvider {
   readonly name = "PAYSTACK" as const;
@@ -107,19 +86,6 @@ class PaystackProvider implements PaymentProvider {
     };
   }
 
-  async refund(input: { transactionReference: string; amountKobo: number; note: string }): Promise<RefundResult> {
-    const d = await this.call<{ id?: number; status?: string }>("/refund", {
-      method: "POST",
-      body: { transaction: input.transactionReference, amount: input.amountKobo, merchant_note: input.note },
-    });
-    return { refundId: d.id ? String(d.id) : null, status: mapRefundStatus(d.status), raw: d };
-  }
-
-  async fetchRefund(refundId: string): Promise<RefundResult> {
-    const d = await this.call<{ id?: number; status?: string }>(`/refund/${encodeURIComponent(refundId)}`);
-    return { refundId, status: mapRefundStatus(d.status), raw: d };
-  }
-
   webhookSecret() {
     return this.secret;
   }
@@ -154,17 +120,6 @@ class DevSimProvider implements PaymentProvider {
       gatewayResponse: t.outcome === "failed" ? "Declined (simulated)" : "Approved (simulated)",
       raw: { simulated: true, ...t },
     };
-  }
-
-  async refund(input: { transactionReference: string; amountKobo: number }): Promise<RefundResult> {
-    const id = await simStore.createRefund(input.transactionReference, input.amountKobo);
-    return { refundId: id, status: "pending", raw: { simulated: true } };
-  }
-
-  async fetchRefund(refundId: string): Promise<RefundResult> {
-    const r = await simStore.getRefund(refundId);
-    if (!r) throw new PaymentProviderError("Unknown simulated refund");
-    return { refundId, status: r.status, raw: { simulated: true, ...r } };
   }
 
   webhookSecret() {

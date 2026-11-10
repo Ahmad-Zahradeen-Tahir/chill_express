@@ -13,7 +13,6 @@ import { applyModificationAfter, type ModificationAfter } from "./modification-a
 import { messageCustomer, notifyStaff } from "./notifications";
 import { canTransition, STAFF_ACTIONS, STAFF_VISIBLE_STATUSES, STATUS_LABELS, type StaffAction } from "./order-state";
 import { priceLine, PricingError, type PricedLine } from "./pricing-core";
-import { committedRefundKobo, createRefunds, submitRefunds } from "./refunds";
 import { startPayment } from "./payments";
 
 export class OrderActionError extends Error {}
@@ -24,7 +23,7 @@ async function loadOrderForStaff(orderId: string) {
   return o;
 }
 
-/** Approve / reject / kitchen workflow / cancel. Permission + branch enforced here. */
+/** Approve / kitchen workflow. Permission + branch enforced here. */
 export async function performStaffAction(orderId: string, action: StaffAction, note?: string | null) {
   const def = STAFF_ACTIONS[action];
   if (!def) throw new OrderActionError("Unknown action");
@@ -33,18 +32,12 @@ export async function performStaffAction(orderId: string, action: StaffAction, n
   if (!def.from.includes(o.status) || !canTransition(o.status, def.to, o.type)) {
     throw new OrderActionError(`Cannot ${def.label.toLowerCase()} an order that is ${STATUS_LABELS[o.status].toLowerCase()}.`);
   }
-  if ((action === "reject" || action === "cancel") && !note?.trim()) {
-    throw new OrderActionError("Please give a reason.");
-  }
 
-  let refundIds: string[] = [];
   await db.transaction(async (tx) => {
     const now = new Date();
     const extra: Partial<typeof order.$inferInsert> = {};
     if (action === "approve") extra.approvedAt = now;
     if (action === "complete") extra.completedAt = now;
-    if (action === "reject") extra.rejectionReason = note!.trim();
-    if (action === "cancel") extra.rejectionReason = note!.trim();
     // Optimistic concurrency: only succeeds if nobody changed the status meanwhile.
     const upd = await tx
       .update(order)
@@ -55,29 +48,7 @@ export async function performStaffAction(orderId: string, action: StaffAction, n
     await tx.insert(orderStatusHistory).values({ orderId: o.id, fromStatus: o.status, toStatus: def.to, actorUserId: ctx.userId, note: note?.trim() || null });
     await audit(tx, { actorUserId: ctx.userId, action: `order.${action}`, entity: "order", entityId: o.id, branchId: o.branchId, data: { from: o.status, to: def.to, note } });
 
-    if (action === "reject" || action === "cancel") {
-      // Withdraw any pending modification.
-      await tx
-        .update(orderModification)
-        .set({ status: "CANCELLED", resolvedAt: now })
-        .where(and(eq(orderModification.orderId, o.id), eq(orderModification.status, "AWAITING_PAYMENT")));
-      const outstanding = o.paidKobo - (await committedRefundKobo(tx, o.id));
-      refundIds = await createRefunds(tx, {
-        orderId: o.id,
-        amountKobo: outstanding,
-        reason: `Order ${action === "reject" ? "rejected" : "cancelled"}: ${note!.trim()}`,
-        actorUserId: ctx.userId,
-      });
-      await notifyStaff(tx, {
-        type: `order.${action === "reject" ? "rejected" : "cancelled"}`,
-        title: `Order ${action === "reject" ? "rejected" : "cancelled"} · ${o.reference}`,
-        body: `${note!.trim()} · refund of ${formatNaira(outstanding)} started`,
-        orderId: o.id,
-        branchId: o.branchId,
-        link: `/staff/orders/${o.id}`,
-        permissionKey: "orders.view",
-      });
-    } else if (action === "approve") {
+    if (action === "approve") {
       await notifyStaff(tx, {
         type: "order.approved",
         title: `Order approved · ${o.reference}`,
@@ -90,7 +61,6 @@ export async function performStaffAction(orderId: string, action: StaffAction, n
     }
     await messageCustomer(tx, o, `status_${def.to.toLowerCase()}`, { reference: o.reference, status: def.to });
   });
-  if (refundIds.length) await submitRefunds(refundIds);
 }
 
 // ---------------- Modifications ----------------
@@ -125,7 +95,7 @@ export type ModifyInput = z.infer<typeof modifySchema>;
 
 const MODIFIABLE: OrderStatus[] = ["PENDING_APPROVAL", "CONFIRMED", "PREPARING"];
 
-export async function modifyOrder(input: ModifyInput): Promise<{ outcome: "applied" | "awaiting_payment" | "refund_started"; deltaKobo: number; paymentUrl?: string }> {
+export async function modifyOrder(input: ModifyInput): Promise<{ outcome: "applied" | "awaiting_payment"; deltaKobo: number; paymentUrl?: string }> {
   const o = await loadOrderForStaff(input.orderId);
   const ctx = await requirePermission("orders.modify", { branchId: o.branchId });
   if (!MODIFIABLE.includes(o.status)) throw new OrderActionError(`Orders that are ${STATUS_LABELS[o.status].toLowerCase()} cannot be modified.`);
@@ -188,7 +158,6 @@ export async function modifyOrder(input: ModifyInput): Promise<{ outcome: "appli
     throw new OrderActionError("A customer email is required to collect the extra payment through Paystack.");
   }
 
-  let refundIds: string[] = [];
   let modId = "";
   await db.transaction(async (tx) => {
     const pendingMod = await tx.query.orderModification.findFirst({
@@ -202,7 +171,7 @@ export async function modifyOrder(input: ModifyInput): Promise<{ outcome: "appli
       .returning({ id: order.id });
     if (!lock.length) throw new OrderActionError("This order was just updated by someone else. Refresh and try again.");
 
-    const status = delta > 0 ? "AWAITING_PAYMENT" : delta < 0 ? "REFUND_ISSUED" : "APPLIED";
+    const status = delta > 0 ? "AWAITING_PAYMENT" : "APPLIED";
     const [mod] = await tx
       .insert(orderModification)
       .values({ orderId: o.id, actorUserId: ctx.userId, reason: input.reason, before, after, deltaKobo: delta, status, resolvedAt: delta > 0 ? null : new Date() })
@@ -223,21 +192,18 @@ export async function modifyOrder(input: ModifyInput): Promise<{ outcome: "appli
         note: `Modification needs extra ${formatNaira(delta)}: ${input.reason}`,
       });
     } else {
+      // Same or lower total: applied straight away. No money is returned through the platform.
       await applyModificationAfter(tx, o.id, after);
-      if (delta < 0) {
-        refundIds = await createRefunds(tx, { orderId: o.id, amountKobo: -delta, reason: `Order modified: ${input.reason}`, actorUserId: ctx.userId });
-      }
     }
     await audit(tx, { actorUserId: ctx.userId, action: "order.modified", entity: "order", entityId: o.id, branchId: o.branchId, data: { deltaKobo: delta, reason: input.reason, modificationId: mod.id } });
     await messageCustomer(tx, o, "order_modified", { reference: o.reference, deltaKobo: delta });
   });
 
-  if (refundIds.length) await submitRefunds(refundIds);
   if (delta > 0) {
     const pay = await startPayment({ orderId: o.id, purpose: "ADDITIONAL", amountKobo: delta, modificationId: modId });
     return { outcome: "awaiting_payment", deltaKobo: delta, paymentUrl: pay.authorizationUrl };
   }
-  return { outcome: delta < 0 ? "refund_started" : "applied", deltaKobo: delta };
+  return { outcome: "applied", deltaKobo: delta };
 }
 
 /** Withdraw a modification that is waiting for extra payment; the order returns to its previous status unchanged. */

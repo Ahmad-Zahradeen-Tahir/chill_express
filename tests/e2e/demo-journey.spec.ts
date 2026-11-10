@@ -43,7 +43,7 @@ test("full demo journey: order → pay → approve → kitchen → customer sees
   const ceo = await browser.newPage();
   await staffLogin(ceo, "ceo@demo.chillexpress.local");
   await ceo.goto("/admin?r=today&demo=0");
-  const gross = ceo.locator("div", { hasText: /^Gross paid sales/ }).first();
+  const gross = ceo.locator("div", { hasText: /^Sales₦/ }).first();
   await expect(gross).toContainText("₦");
   const text = (await gross.textContent()) ?? "";
   const value = Number(text.replace(/[^\d]/g, "").slice(0, -0 || undefined));

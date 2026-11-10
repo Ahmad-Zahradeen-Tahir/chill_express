@@ -27,7 +27,7 @@ The app is a plain Node.js server (`output: "standalone"`) with no Vercel-specif
    pm2 save && pm2 startup
    ```
 6. Configure Nginx (proxy to `127.0.0.1:3000`, `client_max_body_size 6m;`), then run `sudo certbot --nginx -d your-domain`.
-7. Add the cron job (reconciles payments and refunds and expires unpaid orders every 5 minutes):
+7. Add the cron job (reconciles payments and expires unpaid orders every 5 minutes):
    ```
    */5 * * * * curl -s -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/reconcile > /dev/null
    ```
@@ -44,7 +44,7 @@ Shared and Cloud plans only provide MySQL/MariaDB. This would need:
 That is roughly 1–2 days of work plus re-running the test suites. Option A avoids it.
 
 ## Go-live checklist
-- [ ] Paystack live keys set; one real low-value order placed and refunded.
+- [ ] Paystack live keys set; one real low-value order placed and paid end to end.
 - [ ] All demo accounts deleted (or `db:reseed` replaced with a production seed), and real staff created by the CEO.
 - [ ] Branch addresses, hours and the "Only accept orders during opening hours" toggle set.
 - [ ] Remaining placeholder photos replaced.

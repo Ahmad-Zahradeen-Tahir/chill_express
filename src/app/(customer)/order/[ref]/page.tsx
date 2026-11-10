@@ -10,7 +10,6 @@ import { STATUS_LABELS } from "@/server/services/order-state";
 import type { OrderStatus } from "@/server/db/schema/enums";
 import { AutoRefresh } from "@/components/ui/auto-refresh";
 import { Alert } from "@/components/ui/form";
-import { RefundBadge } from "@/components/ui/status-badge";
 import { buttonClass } from "@/components/ui/button";
 import { PayAgainButton } from "./pay-again";
 
@@ -27,8 +26,6 @@ const CUSTOMER_COPY: Partial<Record<OrderStatus, string>> = {
   READY_FOR_PICKUP: "Your order is ready! Head to the branch to collect it.",
   OUT_FOR_DELIVERY: "Your order is on its way.",
   COMPLETED: "Order completed. Enjoy your meal!",
-  REJECTED: "Sorry — the branch couldn't accept this order. Your payment is being refunded.",
-  CANCELLED: "This order was cancelled. Your payment is being refunded.",
 };
 
 export default async function OrderPage({ params, searchParams }: { params: Promise<{ ref: string }>; searchParams: Promise<{ t?: string; payment?: string }> }) {
@@ -48,8 +45,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const o = d.order;
   const steps: OrderStatus[] = ["PENDING_APPROVAL", "CONFIRMED", "PREPARING", o.type === "DELIVERY" ? "OUT_FOR_DELIVERY" : "READY_FOR_PICKUP", "COMPLETED"];
   const reached = new Set(d.history.map((h) => h.toStatus));
-  const terminalBad = ["REJECTED", "CANCELLED", "EXPIRED", "PAYMENT_FAILED"].includes(o.status);
-  const live = !["COMPLETED", "REJECTED", "CANCELLED", "EXPIRED"].includes(o.status);
+  const terminalBad = ["EXPIRED", "PAYMENT_FAILED"].includes(o.status);
+  const live = !["COMPLETED", "EXPIRED"].includes(o.status);
   const additional = d.payments.find((p) => p.purpose === "ADDITIONAL" && p.status === "INITIALIZED");
   const shareLink = access.token ? `/order/${o.reference}?t=${access.token}` : null;
 
@@ -65,7 +62,6 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
       <div className={`mt-6 rounded-3xl p-6 ${terminalBad ? "bg-red-50" : o.status === "COMPLETED" ? "bg-success-50" : "dots bg-brand-orange"}`}>
         <p className="font-display text-4xl font-extrabold uppercase leading-none">{STATUS_LABELS[o.status]}</p>
         <p className="mt-2 text-ink-2">{CUSTOMER_COPY[o.status]}</p>
-        {o.rejectionReason && <p className="mt-1 text-sm text-ink-2">Reason: {o.rejectionReason}</p>}
         {(o.status === "AWAITING_PAYMENT" || o.status === "PAYMENT_FAILED") && <PayAgainButton reference={o.reference} amount={formatNaira(o.totalKobo)} />}
         {additional?.authorizationUrl && o.status === "AWAITING_ADDITIONAL_PAYMENT" && (
           <a href={additional.authorizationUrl} className={buttonClass("red", "lg", "mt-4")}>Pay extra {formatNaira(additional.amountKobo)}</a>
@@ -92,19 +88,6 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             );
           })}
         </ol>
-      )}
-
-      {d.refunds.length > 0 && (
-        <div className="mt-6 rounded-3xl bg-white p-6 shadow-card">
-          <h2 className="font-display text-2xl font-bold uppercase">Refund</h2>
-          {d.refunds.map((r) => (
-            <div key={r.id} className="mt-2 flex items-center justify-between text-sm">
-              <span>{formatNaira(r.amountKobo)}</span>
-              <RefundBadge status={r.status} />
-            </div>
-          ))}
-          <p className="mt-2 text-xs text-ink-3">Refunds go back to your original payment method. Bank processing times vary.</p>
-        </div>
       )}
 
       <div className="mt-6 rounded-3xl bg-white p-6 shadow-card">

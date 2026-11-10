@@ -35,7 +35,6 @@ export default async function StaffQueue({ searchParams }: { searchParams: Promi
   const stats = [
     ["Orders today", String(paidToday.length)],
     ["Completed", String(today.filter((o) => o.status === "COMPLETED").length)],
-    ["Rejected / cancelled", String(today.filter((o) => o.status === "REJECTED" || o.status === "CANCELLED").length)],
     ["Paid today", formatNaira(paidToday.reduce((s, o) => s + o.paidKobo, 0))],
   ];
 
@@ -51,7 +50,7 @@ export default async function StaffQueue({ searchParams }: { searchParams: Promi
         <NewOrderAlert pendingIds={cols[0].orders.map((o) => o.id)} />
       </div>
       <div className="mt-4"><BranchTabs branches={branches} current={b} base="/staff" /></div>
-      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
         {stats.map(([l, v]) => (
           <div key={l} className="rounded-2xl bg-white p-4 ring-1 ring-line">
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-3">{l}</p>

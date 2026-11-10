@@ -15,12 +15,10 @@ export const ORDER_STATUSES = [
   "READY_FOR_PICKUP",
   "OUT_FOR_DELIVERY",
   "COMPLETED",
-  "REJECTED",
-  "CANCELLED",
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-export const PAYMENT_STATUSES = ["UNPAID", "PAID", "PARTIALLY_REFUNDED", "REFUNDED"] as const;
+export const PAYMENT_STATUSES = ["UNPAID", "PAID"] as const;
 export type OrderPaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 export const orderStatusEnum = pgEnum("order_status", ORDER_STATUSES);
@@ -29,11 +27,9 @@ export const orderTypeEnum = pgEnum("order_type", ["PICKUP", "DELIVERY"]);
 export const paymentPurposeEnum = pgEnum("payment_purpose", ["ORDER", "ADDITIONAL"]);
 export const paymentTxnStatusEnum = pgEnum("payment_txn_status", ["INITIALIZED", "SUCCESS", "FAILED", "ABANDONED"]);
 export const paymentProviderEnum = pgEnum("payment_provider", ["PAYSTACK", "DEV_SIM", "DEMO_SEED"]);
-export const refundStatusEnum = pgEnum("refund_status", ["PENDING", "PROCESSING", "REFUNDED", "FAILED"]);
 export const modificationStatusEnum = pgEnum("modification_status", [
   "APPLIED",
   "AWAITING_PAYMENT",
-  "REFUND_ISSUED",
   "CANCELLED",
 ]);
 export const notificationChannelEnum = pgEnum("notification_channel", ["EMAIL", "WHATSAPP"]);

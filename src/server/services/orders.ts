@@ -11,7 +11,6 @@ import {
   orderModification,
   orderStatusHistory,
   payment,
-  refund,
 } from "@/server/db/schema";
 import { newTrackingToken, orderReference, sha256 } from "@/lib/ids";
 import { audit } from "./audit";
@@ -159,16 +158,15 @@ export async function retryOrderPayment(orderId: string) {
 export async function getOrderDetail(orderId: string) {
   const o = await db.query.order.findFirst({ where: eq(order.id, orderId) });
   if (!o) return null;
-  const [items, delivery, history, payments, refunds, mods, br] = await Promise.all([
+  const [items, delivery, history, payments, mods, br] = await Promise.all([
     db.select().from(orderItem).where(eq(orderItem.orderId, o.id)),
     db.query.deliveryInfo.findFirst({ where: eq(deliveryInfo.orderId, o.id) }),
     db.select().from(orderStatusHistory).where(eq(orderStatusHistory.orderId, o.id)).orderBy(asc(orderStatusHistory.createdAt)),
     db.select().from(payment).where(eq(payment.orderId, o.id)).orderBy(asc(payment.createdAt)),
-    db.select().from(refund).where(eq(refund.orderId, o.id)).orderBy(asc(refund.createdAt)),
     db.select().from(orderModification).where(eq(orderModification.orderId, o.id)).orderBy(asc(orderModification.createdAt)),
     db.query.branch.findFirst({ where: eq(branch.id, o.branchId) }),
   ]);
-  return { order: o, items, delivery: delivery ?? null, history, payments, refunds, modifications: mods, branch: br! };
+  return { order: o, items, delivery: delivery ?? null, history, payments, modifications: mods, branch: br! };
 }
 export type OrderDetail = NonNullable<Awaited<ReturnType<typeof getOrderDetail>>>;
 

@@ -13,16 +13,8 @@ const tone: Record<OrderStatus, "neutral" | "orange" | "red" | "green" | "dark" 
   READY_FOR_PICKUP: "green",
   OUT_FOR_DELIVERY: "green",
   COMPLETED: "dark",
-  REJECTED: "red",
-  CANCELLED: "red",
 };
 
 export function StatusBadge({ status }: { status: OrderStatus }) {
   return <Badge tone={tone[status]}>{STATUS_LABELS[status]}</Badge>;
-}
-
-const refundTone = { PENDING: "orange", PROCESSING: "blue", REFUNDED: "green", FAILED: "red" } as const;
-const refundLabel = { PENDING: "Refund pending", PROCESSING: "Refund processing", REFUNDED: "Refunded", FAILED: "Refund failed" } as const;
-export function RefundBadge({ status }: { status: keyof typeof refundTone }) {
-  return <Badge tone={refundTone[status]}>{refundLabel[status]}</Badge>;
 }

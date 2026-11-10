@@ -78,11 +78,12 @@ export async function requirePermission(perm: Permission, opts: { branchId?: str
   return ctx;
 }
 
-/** For pages: redirects instead of throwing. */
-export async function requireStaffPage(perm?: Permission): Promise<StaffContext> {
+/** For pages: redirects instead of throwing. With a list, any one of the permissions is enough. */
+export async function requireStaffPage(perm?: Permission | Permission[]): Promise<StaffContext> {
   const ctx = await getStaff();
   if (!ctx) redirect("/staff/login");
-  if (perm && !ctx.permissions.has(perm)) redirect("/staff?denied=" + encodeURIComponent(perm));
+  const perms = perm === undefined ? [] : Array.isArray(perm) ? perm : [perm];
+  if (perms.length && !perms.some((p) => ctx.permissions.has(p))) redirect("/staff?denied=" + encodeURIComponent(perms.join(",")));
   return ctx;
 }
 

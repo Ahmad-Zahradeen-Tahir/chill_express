@@ -13,7 +13,7 @@ import { STATUS_LABELS } from "@/server/services/order-state";
 import { describeOptions } from "@/server/services/pricing-core";
 import { getMenu } from "@/server/services/catalog";
 import { formatNaira } from "@/lib/money";
-import { RefundBadge, StatusBadge } from "@/components/ui/status-badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge, Card } from "@/components/ui/card";
 import { AutoRefresh } from "@/components/ui/auto-refresh";
 import { OrderActions } from "@/components/portal/order-actions";
@@ -30,14 +30,14 @@ export default async function StaffOrderDetail({ params }: { params: Promise<{ i
   // Branch-level authorization: staff from another branch get a 404, not the data.
   if (!d || !canAccessBranch(ctx, d.order.branchId)) notFound();
   const o = d.order;
-  const actorIds = [...new Set([...d.history.map((h) => h.actorUserId), ...d.modifications.map((m) => m.actorUserId), ...d.refunds.map((r) => r.initiatedByUserId)].filter(Boolean) as string[])];
+  const actorIds = [...new Set([...d.history.map((h) => h.actorUserId), ...d.modifications.map((m) => m.actorUserId)].filter(Boolean) as string[])];
   const actors = actorIds.length ? await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, actorIds)) : [];
   const who = (uid: string | null) => (uid ? (actors.find((a) => a.id === uid)?.name ?? "Staff") : "System");
-  const relatedIds = [o.id, ...d.payments.map((p) => p.id), ...d.refunds.map((r) => r.id)];
+  const relatedIds = [o.id, ...d.payments.map((p) => p.id)];
   const audits = await db.select().from(auditLog).where(inArray(auditLog.entityId, relatedIds)).orderBy(desc(auditLog.createdAt)).limit(40);
   const canModify = ctx.permissions.has("orders.modify") && ["PENDING_APPROVAL", "CONFIRMED", "PREPARING"].includes(o.status);
   const menu = canModify ? await getMenu(o.branchId) : [];
-  const live = !["COMPLETED", "REJECTED", "CANCELLED", "EXPIRED"].includes(o.status);
+  const live = !["COMPLETED", "EXPIRED"].includes(o.status);
   const pendingExtra = d.payments.find((p) => p.purpose === "ADDITIONAL" && p.status === "INITIALIZED");
 
   return (
@@ -79,7 +79,6 @@ export default async function StaffOrderDetail({ params }: { params: Promise<{ i
               {o.deliveryFeeKobo > 0 && <div className="flex justify-between"><dt className="text-ink-3">Delivery fee</dt><dd>{formatNaira(o.deliveryFeeKobo)}</dd></div>}
               <div className="flex justify-between text-base font-bold"><dt>Order total</dt><dd>{formatNaira(o.totalKobo)}</dd></div>
               <div className="flex justify-between"><dt className="text-ink-3">Paid (verified)</dt><dd>{formatNaira(o.paidKobo)}</dd></div>
-              {o.refundedKobo > 0 && <div className="flex justify-between"><dt className="text-ink-3">Refunded (confirmed)</dt><dd>-{formatNaira(o.refundedKobo)}</dd></div>}
             </dl>
           </Card>
 
@@ -135,7 +134,6 @@ export default async function StaffOrderDetail({ params }: { params: Promise<{ i
                 {d.delivery.instructions && <p className="text-ink-3">Note: {d.delivery.instructions}</p>}
               </div>
             )}
-            {o.rejectionReason && <p className="mt-3 text-sm text-brand-red">Reason: {o.rejectionReason}</p>}
           </Card>
 
           <Card className="p-5">
@@ -150,22 +148,7 @@ export default async function StaffOrderDetail({ params }: { params: Promise<{ i
                 </li>
               ))}
             </ul>
-            {d.refunds.length > 0 && (
-              <>
-                <h3 className="mt-4 font-display text-xl font-bold uppercase">Refunds</h3>
-                <ul className="mt-2 space-y-2 text-sm">
-                  {d.refunds.map((r) => (
-                    <li key={r.id} className="rounded-xl bg-paper p-3">
-                      <div className="flex justify-between"><span className="font-semibold">{formatNaira(r.amountKobo)}</span><RefundBadge status={r.status} /></div>
-                      <p className="text-xs text-ink-3">{r.reason}</p>
-                      <p className="text-xs text-ink-3">Started {dt(r.createdAt)} by {who(r.initiatedByUserId)}{r.refundedAt ? ` · refunded ${dt(r.refundedAt)}` : ""}</p>
-                      {r.failureReason && <p className="text-xs text-brand-red">{r.failureReason}</p>}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            <OrderTools orderId={o.id} failedRefundIds={d.refunds.filter((r) => r.status === "FAILED").map((r) => r.id)} canRefund={ctx.permissions.has("refunds.initiate")} canWithdraw={o.status === "AWAITING_ADDITIONAL_PAYMENT" && ctx.permissions.has("orders.modify")} />
+            <OrderTools orderId={o.id} canWithdraw={o.status === "AWAITING_ADDITIONAL_PAYMENT" && ctx.permissions.has("orders.modify")} />
           </Card>
 
           <Card className="p-5">

@@ -27,13 +27,12 @@
 4. Meanwhile, the customer's tracking page updates by itself.
 
 ## 3. Things going wrong (show the safeguards)
-- **Rejection:** place another order and pay. The cashier clicks **Reject** → "Item out of stock". A refund starts automatically and shows *Refund pending* until Paystack confirms it, then *Refunded*.
-- **Modification:** sign in as the Gombole branch manager, open a paid order, click **Edit** and add an item. The order is **held** until the customer pays the extra through Paystack. Removing an item starts a partial refund instead.
-- **Sold out:** Staff → Availability → mark Soda *Sold out* at Gombole Road. The menu shows it unavailable at Gombole only.
+- **Modification:** sign in as the Gombole branch manager, open a paid order, click **Edit** and add an item. The order is **held** until the customer pays the extra through Paystack. Removing an item applies straight away with the lower total (no money is returned through the platform).
+- **Sold out:** Management → Menu → click the *Gombole Road* switch on Soda to mark it *Sold out* (also on each product’s edit page). The menu shows it unavailable at Gombole only.
 - **Branch security:** the Gombole cashier cannot see Lagos Street orders or any management pages.
 
 ## 4. CEO dashboard
-1. **Executive dashboard:** gross paid sales, refunds and net revenue (shown separately), average order value, completed and cancelled counts, best sellers, branch comparison and orders by hour.
+1. **Executive dashboard:** sales (verified payments), average order value, completed orders, pickup/delivery split, best sellers, branch comparison and orders by hour.
 2. Switch **Today / 7 days / 30 days / custom** and **All / Gombole Road / Lagos Street**.
 3. Untick **Include demo data** to show that only real transactions remain. The order just placed is there.
 4. **Reports:** download the Sales report as PDF and the Order report as Excel.

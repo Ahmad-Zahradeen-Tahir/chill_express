@@ -13,9 +13,9 @@ describe("permissions", () => {
     expect(hasPermission(c, "orders.approve", GR)).toBe(true);
     expect(hasPermission(c, "orders.approve", LS)).toBe(false);
   });
-  it("cashier cannot modify, refund, manage menu or staff", () => {
+  it("cashier cannot modify, manage menu or staff", () => {
     const c = ctx("CASHIER", [GR]);
-    for (const p of ["orders.modify", "refunds.initiate", "menu.manage", "staff.manage", "analytics.view"] as const) {
+    for (const p of ["orders.modify", "menu.manage", "staff.manage", "analytics.view"] as const) {
       expect(hasPermission(c, p, GR)).toBe(false);
     }
   });
@@ -26,9 +26,9 @@ describe("permissions", () => {
     expect(hasPermission(ctx("CENTRAL_MANAGER", null), "staff.manage")).toBe(false);
   });
   it("overrides grant and revoke, but never reduce the CEO", () => {
-    const c = ctx("CASHIER", [GR], [{ permissionKey: "orders.modify", granted: true }, { permissionKey: "orders.reject", granted: false }]);
+    const c = ctx("CASHIER", [GR], [{ permissionKey: "orders.modify", granted: true }, { permissionKey: "orders.approve", granted: false }]);
     expect(hasPermission(c, "orders.modify", GR)).toBe(true);
-    expect(hasPermission(c, "orders.reject", GR)).toBe(false);
+    expect(hasPermission(c, "orders.approve", GR)).toBe(false);
     const ceo = ctx("CEO", null, [{ permissionKey: "staff.manage", granted: false }]);
     expect(hasPermission(ceo, "staff.manage")).toBe(true);
   });

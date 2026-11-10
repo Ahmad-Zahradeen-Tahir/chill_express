@@ -8,10 +8,10 @@ import { AnalyticsFilters } from "@/components/admin/filters";
 import { Card } from "@/components/ui/card";
 
 const DESC: Record<keyof typeof REPORT_TYPES, string> = {
-  sales: "Gross paid sales, refunds and net revenue with a daily breakdown and branch comparison.",
-  orders: "Every order in the period with status, customer, totals, payments and refunds.",
+  sales: "Paid sales with a daily breakdown and branch comparison.",
+  orders: "Every order in the period with status, customer, totals and payments.",
   products: "Units sold and item revenue per product, plus a breakdown by variation (size, protein, cheese).",
-  operations: "Approval and fulfilment times, cancellations, pending approvals and refund backlog.",
+  operations: "Approval and fulfilment times, cancellations and pending approvals.",
 };
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {

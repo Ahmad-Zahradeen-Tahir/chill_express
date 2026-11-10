@@ -8,7 +8,6 @@ import { formatNaira } from "@/lib/money";
 import { getPaymentProvider, PaymentProviderError } from "@/server/paystack/provider";
 import { audit } from "./audit";
 import { messageCustomer, notifyStaff } from "./notifications";
-import { createRefunds, submitRefunds } from "./refunds";
 import { applyModificationAfter, type ModificationAfter } from "./modification-apply";
 
 export const ORDER_PAYMENT_WINDOW_MIN = 60;
@@ -143,14 +142,13 @@ export async function confirmPayment(reference: string, source: string): Promise
         orderId: o0.id,
         branchId: o0.branchId,
         link: `/staff/orders/${o0.id}`,
-        permissionKey: "refunds.initiate",
+        permissionKey: "orders.modify",
       });
     });
     return { kind: "failed", orderId: o0.id, orderReference: o0.reference, reason: "Payment amount did not match. Our team has been alerted." };
   }
 
-  let refundIds: string[] = [];
-  const result = await db.transaction(async (tx): Promise<ConfirmOutcome> => {
+  return db.transaction(async (tx): Promise<ConfirmOutcome> => {
     // Idempotency: only the first verifier flips the row to SUCCESS.
     const flipped = await tx
       .update(payment)
@@ -188,10 +186,18 @@ export async function confirmPayment(reference: string, source: string): Promise
         });
         await messageCustomer(tx, o, "order_paid", { reference: o.reference, totalKobo: o.totalKobo });
       } else {
-        // Duplicate payment for an order that is already paid: refund it automatically.
+        // Duplicate payment for an order that is already paid: record it and alert managers to handle it manually.
         await tx.update(order).set({ paidKobo: paid, updatedAt: new Date() }).where(eq(order.id, o.id));
-        refundIds = await createRefunds(tx, { orderId: o.id, amountKobo: p.amountKobo, reason: "Duplicate payment for an already-paid order" });
         await audit(tx, { actorLabel: source, action: "payment.duplicate", entity: "order", entityId: o.id, branchId: o.branchId, data: { reference } });
+        await notifyStaff(tx, {
+          type: "payment.duplicate",
+          title: `Duplicate payment · ${o.reference}`,
+          body: `${formatNaira(p.amountKobo)} was paid again for an order that was already paid. Handle with the customer directly.`,
+          orderId: o.id,
+          branchId: o.branchId,
+          link: `/staff/orders/${o.id}`,
+          permissionKey: "orders.modify",
+        });
       }
       return { kind: "paid", orderId: o.id, orderReference: o.reference };
     }
@@ -217,14 +223,20 @@ export async function confirmPayment(reference: string, source: string): Promise
         permissionKey: "orders.view",
       });
     } else {
-      // Modification was cancelled (or order closed) before the customer paid: refund the extra payment.
-      refundIds = await createRefunds(tx, { orderId: o.id, amountKobo: p.amountKobo, reason: "Additional payment received after modification was withdrawn" });
+      // Modification was withdrawn (or the order closed) before the customer paid: alert managers to handle it manually.
+      await audit(tx, { actorLabel: source, action: "payment.unmatched_additional", entity: "order", entityId: o.id, branchId: o.branchId, data: { reference } });
+      await notifyStaff(tx, {
+        type: "payment.unmatched_additional",
+        title: `Extra payment needs attention · ${o.reference}`,
+        body: `${formatNaira(p.amountKobo)} arrived after the modification was withdrawn. Handle with the customer directly.`,
+        orderId: o.id,
+        branchId: o.branchId,
+        link: `/staff/orders/${o.id}`,
+        permissionKey: "orders.modify",
+      });
     }
     return { kind: "paid", orderId: o.id, orderReference: o.reference };
   });
-
-  if (refundIds.length) await submitRefunds(refundIds);
-  return result;
 }
 
 /** Re-verify stale INITIALIZED payments and expire unpaid orders. */

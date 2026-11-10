@@ -21,7 +21,6 @@ import {
   paymentProviderEnum,
   paymentPurposeEnum,
   paymentTxnStatusEnum,
-  refundStatusEnum,
 } from "./enums";
 
 export type OrderItemOptionSnapshot = { groupName: string; optionName: string; priceDeltaKobo: number; optionId: string };
@@ -44,13 +43,11 @@ export const order = pgTable(
     deliveryFeeKobo: integer("delivery_fee_kobo").notNull().default(0),
     totalKobo: integer("total_kobo").notNull(),
     paidKobo: integer("paid_kobo").notNull().default(0), // sum of verified successful payments
-    refundedKobo: integer("refunded_kobo").notNull().default(0), // sum of provider-confirmed refunds
     status: orderStatusEnum("status").notNull().default("AWAITING_PAYMENT"),
     statusBeforeHold: orderStatusEnum("status_before_hold"),
     paymentStatus: orderPaymentStatusEnum("payment_status").notNull().default("UNPAID"),
     trackingTokenHash: text("tracking_token_hash").notNull(),
     staffNote: text("staff_note"),
-    rejectionReason: text("rejection_reason"),
     isDemo: boolean("is_demo").notNull().default(false),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
@@ -63,7 +60,7 @@ export const order = pgTable(
     index("order_payment_status_idx").on(t.paymentStatus),
     index("order_customer_idx").on(t.customerUserId),
     index("order_created_idx").on(t.createdAt),
-    check("order_amounts_nonneg", sql`${t.totalKobo} >= 0 AND ${t.paidKobo} >= 0 AND ${t.refundedKobo} >= 0`),
+    check("order_amounts_nonneg", sql`${t.totalKobo} >= 0 AND ${t.paidKobo} >= 0`),
   ],
 );
 
@@ -141,35 +138,6 @@ export const payment = pgTable(
     index("payment_order_idx").on(t.orderId),
     index("payment_status_idx").on(t.status, t.createdAt),
     check("payment_amount_pos", sql`${t.amountKobo} > 0`),
-  ],
-);
-
-export const refund = pgTable(
-  "refund",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    orderId: uuid("order_id")
-      .notNull()
-      .references(() => order.id, { onDelete: "restrict" }),
-    paymentId: uuid("payment_id")
-      .notNull()
-      .references(() => payment.id, { onDelete: "restrict" }),
-    amountKobo: integer("amount_kobo").notNull(),
-    reason: text("reason").notNull(),
-    status: refundStatusEnum("status").notNull().default("PENDING"),
-    providerRefundId: text("provider_refund_id"),
-    failureReason: text("failure_reason"),
-    initiatedByUserId: text("initiated_by_user_id").references(() => user.id, { onDelete: "set null" }),
-    submittedAt: timestamp("submitted_at", { withTimezone: true }), // when sent to the provider
-    refundedAt: timestamp("refunded_at", { withTimezone: true }),
-    raw: jsonb("raw"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    index("refund_order_idx").on(t.orderId),
-    index("refund_status_idx").on(t.status),
-    check("refund_amount_pos", sql`${t.amountKobo} > 0`),
   ],
 );
 

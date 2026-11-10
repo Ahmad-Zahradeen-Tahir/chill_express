@@ -14,8 +14,8 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   return (
     <div>
       <h1 className="font-display text-5xl font-extrabold uppercase leading-none">Audit log</h1>
-      <p className="text-sm text-ink-3">Every approval, rejection, modification, refund, price change, staff change and export.</p>
-      <form className="mt-4 flex max-w-md gap-2"><Input name="q" defaultValue={q} placeholder="Filter by action, e.g. order.reject" /><Button variant="dark">Filter</Button></form>
+      <p className="text-sm text-ink-3">Every approval, status change, modification, price change, staff change and export.</p>
+      <form className="mt-4 flex max-w-md gap-2"><Input name="q" defaultValue={q} placeholder="Filter by action, e.g. order.approve" /><Button variant="dark">Filter</Button></form>
       <div className="mt-4 overflow-x-auto rounded-2xl bg-white ring-1 ring-line">
         <table className="w-full min-w-[760px] text-sm">
           <thead className="bg-paper text-left text-xs uppercase tracking-wide text-ink-3"><tr><th className="px-4 py-2.5">When</th><th className="px-4 py-2.5">Who</th><th className="px-4 py-2.5">Action</th><th className="px-4 py-2.5">Entity</th><th className="px-4 py-2.5">Details</th></tr></thead>

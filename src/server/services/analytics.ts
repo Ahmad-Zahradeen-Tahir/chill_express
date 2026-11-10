@@ -63,50 +63,36 @@ function orderScope(s: Scope, alias = "o"): SQL {
 }
 
 const PAID_OK = sql`o.payment_status <> 'UNPAID'`;
+/** Sales = payments verified with the provider. */
+const SALE_OK = sql`p.status = 'SUCCESS'`;
 
 export async function getOverview(s: Scope, r: Range) {
   const scope = orderScope(s);
   const [money] = (
-    await db.execute<{ gross: number; refunds: number }>(sql`
-      SELECT
-        (SELECT coalesce(sum(p.amount_kobo),0)::bigint FROM payment p JOIN "order" o ON o.id = p.order_id
-          WHERE p.status = 'SUCCESS' AND p.verified_at >= ${r.from} AND p.verified_at < ${r.to} AND ${scope}) AS gross,
-        (SELECT coalesce(sum(f.amount_kobo),0)::bigint FROM refund f JOIN "order" o ON o.id = f.order_id
-          WHERE f.status = 'REFUNDED' AND f.refunded_at >= ${r.from} AND f.refunded_at < ${r.to} AND ${scope}) AS refunds`)
+    await db.execute<{ gross: number }>(sql`
+      SELECT coalesce(sum(p.amount_kobo),0)::bigint AS gross FROM payment p JOIN "order" o ON o.id = p.order_id
+        WHERE ${SALE_OK} AND p.verified_at >= ${r.from} AND p.verified_at < ${r.to} AND ${scope}`)
   ).rows;
   const [cnt] = (
-    await db.execute<{ total: number; paid: number; completed: number; cancelled: number; rejected: number; aov_sum: number; aov_n: number; unpaid: number }>(sql`
+    await db.execute<{ total: number; paid: number; completed: number; aov_sum: number; aov_n: number; unpaid: number }>(sql`
       SELECT count(*)::int AS total,
         count(*) FILTER (WHERE ${PAID_OK})::int AS paid,
         count(*) FILTER (WHERE o.status = 'COMPLETED')::int AS completed,
-        count(*) FILTER (WHERE o.status = 'CANCELLED')::int AS cancelled,
-        count(*) FILTER (WHERE o.status = 'REJECTED')::int AS rejected,
         count(*) FILTER (WHERE o.status IN ('AWAITING_PAYMENT','PAYMENT_FAILED','EXPIRED'))::int AS unpaid,
-        coalesce(sum(o.total_kobo) FILTER (WHERE ${PAID_OK} AND o.status NOT IN ('REJECTED','CANCELLED')),0)::bigint AS aov_sum,
-        count(*) FILTER (WHERE ${PAID_OK} AND o.status NOT IN ('REJECTED','CANCELLED'))::int AS aov_n
+        coalesce(sum(o.total_kobo) FILTER (WHERE ${PAID_OK}),0)::bigint AS aov_sum,
+        count(*) FILTER (WHERE ${PAID_OK})::int AS aov_n
       FROM "order" o WHERE o.created_at >= ${r.from} AND o.created_at < ${r.to} AND ${scope}`)
   ).rows;
   const [pending] = (
     await db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM "order" o WHERE o.status IN ('PENDING_APPROVAL','AWAITING_ADDITIONAL_PAYMENT') AND ${scope}`)
   ).rows;
-  const [openRefunds] = (
-    await db.execute<{ n: number; amt: number }>(sql`SELECT count(*)::int AS n, coalesce(sum(f.amount_kobo),0)::bigint AS amt FROM refund f JOIN "order" o ON o.id=f.order_id WHERE f.status IN ('PENDING','PROCESSING','FAILED') AND ${scope}`)
-  ).rows;
-  const gross = Number(money.gross);
-  const refunds = Number(money.refunds);
   return {
-    grossKobo: gross,
-    refundsKobo: refunds,
-    netKobo: gross - refunds,
+    grossKobo: Number(money.gross),
     totalOrders: cnt.total,
     paidOrders: cnt.paid,
     unpaidOrders: cnt.unpaid,
     completed: cnt.completed,
-    cancelled: cnt.cancelled,
-    rejected: cnt.rejected,
     pendingApprovals: pending.n,
-    openRefunds: openRefunds.n,
-    openRefundsKobo: Number(openRefunds.amt),
     aovKobo: cnt.aov_n ? Math.round(Number(cnt.aov_sum) / cnt.aov_n / 100) * 100 : 0,
   };
 }
@@ -117,7 +103,7 @@ export async function getTrend(s: Scope, r: Range) {
   const hourly = +r.to - +r.from <= 2 * 86400_000;
   const unit = hourly ? "hour" : "day";
   const rows = (
-    await db.execute<{ bucket: string; gross: number; refunds: number; orders: number }>(sql`
+    await db.execute<{ bucket: string; gross: number; orders: number }>(sql`
       WITH buckets AS (
         SELECT generate_series(date_trunc(${unit}, ${r.from}::timestamptz AT TIME ZONE 'Africa/Lagos'),
                                date_trunc(${unit}, (${r.to}::timestamptz - interval '1 second') AT TIME ZONE 'Africa/Lagos'),
@@ -125,35 +111,30 @@ export async function getTrend(s: Scope, r: Range) {
       ),
       g AS (SELECT date_trunc(${unit}, p.verified_at AT TIME ZONE 'Africa/Lagos') b, sum(p.amount_kobo) v
             FROM payment p JOIN "order" o ON o.id=p.order_id
-            WHERE p.status='SUCCESS' AND p.verified_at >= ${r.from} AND p.verified_at < ${r.to} AND ${scope} GROUP BY 1),
-      f AS (SELECT date_trunc(${unit}, f.refunded_at AT TIME ZONE 'Africa/Lagos') b, sum(f.amount_kobo) v
-            FROM refund f JOIN "order" o ON o.id=f.order_id
-            WHERE f.status='REFUNDED' AND f.refunded_at >= ${r.from} AND f.refunded_at < ${r.to} AND ${scope} GROUP BY 1),
+            WHERE ${SALE_OK} AND p.verified_at >= ${r.from} AND p.verified_at < ${r.to} AND ${scope} GROUP BY 1),
       c AS (SELECT date_trunc(${unit}, o.created_at AT TIME ZONE 'Africa/Lagos') b, count(*) v
             FROM "order" o WHERE ${PAID_OK} AND o.created_at >= ${r.from} AND o.created_at < ${r.to} AND ${scope} GROUP BY 1)
       SELECT to_char(buckets.b, ${hourly ? "HH24:00" : "YYYY-MM-DD"}) AS bucket,
-        coalesce(g.v,0)::bigint AS gross, coalesce(f.v,0)::bigint AS refunds, coalesce(c.v,0)::int AS orders
-      FROM buckets LEFT JOIN g ON g.b=buckets.b LEFT JOIN f ON f.b=buckets.b LEFT JOIN c ON c.b=buckets.b
+        coalesce(g.v,0)::bigint AS gross, coalesce(c.v,0)::int AS orders
+      FROM buckets LEFT JOIN g ON g.b=buckets.b LEFT JOIN c ON c.b=buckets.b
       ORDER BY buckets.b`)
   ).rows;
   return {
     unit,
-    points: rows.map((x) => ({ bucket: x.bucket, gross: Number(x.gross), refunds: Number(x.refunds), net: Number(x.gross) - Number(x.refunds), orders: Number(x.orders) })),
+    points: rows.map((x) => ({ bucket: x.bucket, gross: Number(x.gross), orders: Number(x.orders) })),
   };
 }
 
 export async function getBranchComparison(s: Scope, r: Range) {
   const scope = orderScope(s);
   const rows = (
-    await db.execute<{ id: string; name: string; gross: number; refunds: number; orders: number; completed: number; cancelled: number; aov_sum: number; aov_n: number }>(sql`
+    await db.execute<{ id: string; name: string; gross: number; orders: number; completed: number; aov_sum: number; aov_n: number }>(sql`
       SELECT b.id, b.name,
-        (SELECT coalesce(sum(p.amount_kobo),0) FROM payment p JOIN "order" o ON o.id=p.order_id WHERE o.branch_id=b.id AND p.status='SUCCESS' AND p.verified_at >= ${r.from} AND p.verified_at < ${r.to} AND ${scope})::bigint AS gross,
-        (SELECT coalesce(sum(f.amount_kobo),0) FROM refund f JOIN "order" o ON o.id=f.order_id WHERE o.branch_id=b.id AND f.status='REFUNDED' AND f.refunded_at >= ${r.from} AND f.refunded_at < ${r.to} AND ${scope})::bigint AS refunds,
+        (SELECT coalesce(sum(p.amount_kobo),0) FROM payment p JOIN "order" o ON o.id=p.order_id WHERE o.branch_id=b.id AND ${SALE_OK} AND p.verified_at >= ${r.from} AND p.verified_at < ${r.to} AND ${scope})::bigint AS gross,
         (SELECT count(*) FROM "order" o WHERE o.branch_id=b.id AND ${PAID_OK} AND o.created_at >= ${r.from} AND o.created_at < ${r.to} AND ${scope})::int AS orders,
         (SELECT count(*) FROM "order" o WHERE o.branch_id=b.id AND o.status='COMPLETED' AND o.created_at >= ${r.from} AND o.created_at < ${r.to} AND ${scope})::int AS completed,
-        (SELECT count(*) FROM "order" o WHERE o.branch_id=b.id AND o.status IN ('CANCELLED','REJECTED') AND o.created_at >= ${r.from} AND o.created_at < ${r.to} AND ${scope})::int AS cancelled,
-        (SELECT coalesce(sum(o.total_kobo),0) FROM "order" o WHERE o.branch_id=b.id AND ${PAID_OK} AND o.status NOT IN ('REJECTED','CANCELLED') AND o.created_at >= ${r.from} AND o.created_at < ${r.to} AND ${scope})::bigint AS aov_sum,
-        (SELECT count(*) FROM "order" o WHERE o.branch_id=b.id AND ${PAID_OK} AND o.status NOT IN ('REJECTED','CANCELLED') AND o.created_at >= ${r.from} AND o.created_at < ${r.to} AND ${scope})::int AS aov_n
+        (SELECT coalesce(sum(o.total_kobo),0) FROM "order" o WHERE o.branch_id=b.id AND ${PAID_OK} AND o.created_at >= ${r.from} AND o.created_at < ${r.to} AND ${scope})::bigint AS aov_sum,
+        (SELECT count(*) FROM "order" o WHERE o.branch_id=b.id AND ${PAID_OK} AND o.created_at >= ${r.from} AND o.created_at < ${r.to} AND ${scope})::int AS aov_n
       FROM branch b
       WHERE ${s.branchIds === null ? sql`true` : s.branchIds.length ? sql`b.id IN (${sql.join(s.branchIds.map((x) => sql`${x}::uuid`), sql`, `)})` : sql`false`}
       ORDER BY b.name`)
@@ -162,11 +143,8 @@ export async function getBranchComparison(s: Scope, r: Range) {
     id: x.id,
     name: x.name,
     grossKobo: Number(x.gross),
-    refundsKobo: Number(x.refunds),
-    netKobo: Number(x.gross) - Number(x.refunds),
     orders: x.orders,
     completed: x.completed,
-    cancelled: x.cancelled,
     aovKobo: x.aov_n ? Math.round(Number(x.aov_sum) / x.aov_n / 100) * 100 : 0,
   }));
 }
@@ -177,7 +155,7 @@ export async function getProductPerformance(s: Scope, r: Range, limit = 50) {
     await db.execute<{ product: string; category: string; qty: number; revenue: number; orders: number }>(sql`
       SELECT oi.product_name AS product, oi.category_name AS category, sum(oi.quantity)::int AS qty, sum(oi.line_total_kobo)::bigint AS revenue, count(DISTINCT o.id)::int AS orders
       FROM order_item oi JOIN "order" o ON o.id = oi.order_id
-      WHERE ${PAID_OK} AND o.status NOT IN ('REJECTED','CANCELLED') AND o.created_at >= ${r.from} AND o.created_at < ${r.to} AND ${scope}
+      WHERE ${PAID_OK} AND o.created_at >= ${r.from} AND o.created_at < ${r.to} AND ${scope}
       GROUP BY 1,2 ORDER BY qty DESC LIMIT ${limit}`)
   ).rows;
   return rows.map((x) => ({ ...x, revenue: Number(x.revenue) }));
@@ -189,7 +167,7 @@ export async function getVariantPerformance(s: Scope, r: Range) {
     await db.execute<{ product: string; variant: string; qty: number }>(sql`
       SELECT oi.product_name AS product, coalesce(string_agg(opt->>'optionName', ' · ' ORDER BY opt->>'groupName'), 'Standard') AS variant, sum(oi.quantity)::int AS qty
       FROM order_item oi JOIN "order" o ON o.id = oi.order_id LEFT JOIN LATERAL jsonb_array_elements(oi.options) opt ON true
-      WHERE ${PAID_OK} AND o.status NOT IN ('REJECTED','CANCELLED') AND o.created_at >= ${r.from} AND o.created_at < ${r.to} AND ${scope}
+      WHERE ${PAID_OK} AND o.created_at >= ${r.from} AND o.created_at < ${r.to} AND ${scope}
       GROUP BY oi.id, oi.product_name`)
   ).rows;
 }

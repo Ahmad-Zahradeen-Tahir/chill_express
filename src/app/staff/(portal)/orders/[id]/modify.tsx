@@ -128,7 +128,7 @@ export function ModifyOrder({
         <div className="flex justify-between"><span>Current total</span><span>{formatNaira(order.totalKobo)}</span></div>
         <div className="flex justify-between font-bold"><span>New total</span><span>{formatNaira(newTotal)}</span></div>
         <p className={`mt-1 font-semibold ${delta > 0 ? "text-[#7a4a00]" : delta < 0 ? "text-success" : "text-ink-3"}`}>
-          {delta > 0 ? `Customer must pay ${formatNaira(delta)} extra through Paystack. The order is held until it is verified.` : delta < 0 ? `${formatNaira(-delta)} will be refunded through Paystack.` : "No price change."}
+          {delta > 0 ? `Customer must pay ${formatNaira(delta)} extra through Paystack. The order is held until it is verified.` : delta < 0 ? `New total is ${formatNaira(-delta)} lower. No money is returned automatically.` : "No price change."}
         </p>
         <p className="text-xs text-ink-3">Final amounts are recalculated on the server. Existing items keep the price the customer paid.</p>
       </div>

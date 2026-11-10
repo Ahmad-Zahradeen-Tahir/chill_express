@@ -1,13 +1,12 @@
 CREATE TYPE "public"."notification_delivery_status" AS ENUM('NOT_CONFIGURED', 'QUEUED', 'SENT', 'FAILED');--> statement-breakpoint
-CREATE TYPE "public"."modification_status" AS ENUM('APPLIED', 'AWAITING_PAYMENT', 'REFUND_ISSUED', 'CANCELLED');--> statement-breakpoint
+CREATE TYPE "public"."modification_status" AS ENUM('APPLIED', 'AWAITING_PAYMENT', 'CANCELLED');--> statement-breakpoint
 CREATE TYPE "public"."notification_channel" AS ENUM('EMAIL', 'WHATSAPP');--> statement-breakpoint
-CREATE TYPE "public"."order_payment_status" AS ENUM('UNPAID', 'PAID', 'PARTIALLY_REFUNDED', 'REFUNDED');--> statement-breakpoint
-CREATE TYPE "public"."order_status" AS ENUM('AWAITING_PAYMENT', 'PAYMENT_FAILED', 'EXPIRED', 'PENDING_APPROVAL', 'AWAITING_ADDITIONAL_PAYMENT', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'COMPLETED', 'REJECTED', 'CANCELLED');--> statement-breakpoint
+CREATE TYPE "public"."order_payment_status" AS ENUM('UNPAID', 'PAID');--> statement-breakpoint
+CREATE TYPE "public"."order_status" AS ENUM('AWAITING_PAYMENT', 'PAYMENT_FAILED', 'EXPIRED', 'PENDING_APPROVAL', 'AWAITING_ADDITIONAL_PAYMENT', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'COMPLETED');--> statement-breakpoint
 CREATE TYPE "public"."order_type" AS ENUM('PICKUP', 'DELIVERY');--> statement-breakpoint
 CREATE TYPE "public"."payment_provider" AS ENUM('PAYSTACK', 'DEV_SIM', 'DEMO_SEED');--> statement-breakpoint
 CREATE TYPE "public"."payment_purpose" AS ENUM('ORDER', 'ADDITIONAL');--> statement-breakpoint
 CREATE TYPE "public"."payment_txn_status" AS ENUM('INITIALIZED', 'SUCCESS', 'FAILED', 'ABANDONED');--> statement-breakpoint
-CREATE TYPE "public"."refund_status" AS ENUM('PENDING', 'PROCESSING', 'REFUNDED', 'FAILED');--> statement-breakpoint
 CREATE TABLE "account" (
 	"id" text PRIMARY KEY NOT NULL,
 	"account_id" text NOT NULL,
@@ -212,13 +211,11 @@ CREATE TABLE "order" (
 	"delivery_fee_kobo" integer DEFAULT 0 NOT NULL,
 	"total_kobo" integer NOT NULL,
 	"paid_kobo" integer DEFAULT 0 NOT NULL,
-	"refunded_kobo" integer DEFAULT 0 NOT NULL,
 	"status" "order_status" DEFAULT 'AWAITING_PAYMENT' NOT NULL,
 	"status_before_hold" "order_status",
 	"payment_status" "order_payment_status" DEFAULT 'UNPAID' NOT NULL,
 	"tracking_token_hash" text NOT NULL,
 	"staff_note" text,
-	"rejection_reason" text,
 	"is_demo" boolean DEFAULT false NOT NULL,
 	"paid_at" timestamp with time zone,
 	"approved_at" timestamp with time zone,
@@ -226,7 +223,7 @@ CREATE TABLE "order" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "order_reference_unique" UNIQUE("reference"),
-	CONSTRAINT "order_amounts_nonneg" CHECK ("order"."total_kobo" >= 0 AND "order"."paid_kobo" >= 0 AND "order"."refunded_kobo" >= 0)
+	CONSTRAINT "order_amounts_nonneg" CHECK ("order"."total_kobo" >= 0 AND "order"."paid_kobo" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "order_item" (
@@ -285,24 +282,6 @@ CREATE TABLE "payment" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "payment_reference_unique" UNIQUE("reference"),
 	CONSTRAINT "payment_amount_pos" CHECK ("payment"."amount_kobo" > 0)
-);
---> statement-breakpoint
-CREATE TABLE "refund" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"order_id" uuid NOT NULL,
-	"payment_id" uuid NOT NULL,
-	"amount_kobo" integer NOT NULL,
-	"reason" text NOT NULL,
-	"status" "refund_status" DEFAULT 'PENDING' NOT NULL,
-	"provider_refund_id" text,
-	"failure_reason" text,
-	"initiated_by_user_id" text,
-	"submitted_at" timestamp with time zone,
-	"refunded_at" timestamp with time zone,
-	"raw" jsonb,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "refund_amount_pos" CHECK ("refund"."amount_kobo" > 0)
 );
 --> statement-breakpoint
 CREATE TABLE "webhook_event" (
@@ -398,9 +377,6 @@ ALTER TABLE "order_modification" ADD CONSTRAINT "order_modification_actor_user_i
 ALTER TABLE "order_status_history" ADD CONSTRAINT "order_status_history_order_id_order_id_fk" FOREIGN KEY ("order_id") REFERENCES "public"."order"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "order_status_history" ADD CONSTRAINT "order_status_history_actor_user_id_user_id_fk" FOREIGN KEY ("actor_user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payment" ADD CONSTRAINT "payment_order_id_order_id_fk" FOREIGN KEY ("order_id") REFERENCES "public"."order"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "refund" ADD CONSTRAINT "refund_order_id_order_id_fk" FOREIGN KEY ("order_id") REFERENCES "public"."order"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "refund" ADD CONSTRAINT "refund_payment_id_payment_id_fk" FOREIGN KEY ("payment_id") REFERENCES "public"."payment"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "refund" ADD CONSTRAINT "refund_initiated_by_user_id_user_id_fk" FOREIGN KEY ("initiated_by_user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "audit_log" ADD CONSTRAINT "audit_log_actor_user_id_user_id_fk" FOREIGN KEY ("actor_user_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "audit_log" ADD CONSTRAINT "audit_log_branch_id_branch_id_fk" FOREIGN KEY ("branch_id") REFERENCES "public"."branch"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notification" ADD CONSTRAINT "notification_recipient_user_id_user_id_fk" FOREIGN KEY ("recipient_user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -425,8 +401,6 @@ CREATE INDEX "order_mod_order_idx" ON "order_modification" USING btree ("order_i
 CREATE INDEX "osh_order_idx" ON "order_status_history" USING btree ("order_id","created_at");--> statement-breakpoint
 CREATE INDEX "payment_order_idx" ON "payment" USING btree ("order_id");--> statement-breakpoint
 CREATE INDEX "payment_status_idx" ON "payment" USING btree ("status","created_at");--> statement-breakpoint
-CREATE INDEX "refund_order_idx" ON "refund" USING btree ("order_id");--> statement-breakpoint
-CREATE INDEX "refund_status_idx" ON "refund" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "audit_entity_idx" ON "audit_log" USING btree ("entity","entity_id");--> statement-breakpoint
 CREATE INDEX "audit_created_idx" ON "audit_log" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "notification_created_idx" ON "notification" USING btree ("created_at");--> statement-breakpoint

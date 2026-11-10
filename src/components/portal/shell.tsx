@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bell, BarChart3, ClipboardList, FileText, LayoutGrid, LogOut, Store, Users, UtensilsCrossed, ShieldCheck, ToggleLeft } from "lucide-react";
+import { Bell, BarChart3, ClipboardList, FileText, LayoutGrid, LogOut, Store, Users, UtensilsCrossed, ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { ROLE_LABELS, type Permission, type StaffContext } from "@/server/auth/permissions";
 import { staffSignOut } from "@/app/actions/auth";
@@ -13,11 +13,10 @@ import { inArray } from "drizzle-orm";
 const NAV: { href: string; label: string; icon: React.ComponentType<{ className?: string }>; perm: Permission | Permission[]; group: "ops" | "admin" }[] = [
   { href: "/staff", label: "Live queue", icon: LayoutGrid, perm: "orders.view", group: "ops" },
   { href: "/staff/orders", label: "All orders", icon: ClipboardList, perm: "orders.view", group: "ops" },
-  { href: "/staff/availability", label: "Availability", icon: ToggleLeft, perm: ["menu.availability", "menu.manage"], group: "ops" },
   { href: "/staff/notifications", label: "Notifications", icon: Bell, perm: "notifications.view", group: "ops" },
   { href: "/admin", label: "Executive dashboard", icon: BarChart3, perm: "analytics.view", group: "admin" },
   { href: "/admin/reports", label: "Reports", icon: FileText, perm: "reports.export", group: "admin" },
-  { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed, perm: "menu.manage", group: "admin" },
+  { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed, perm: ["menu.manage", "menu.availability"], group: "admin" },
   { href: "/admin/branches", label: "Branches", icon: Store, perm: "branches.manage", group: "admin" },
   { href: "/admin/staff", label: "Staff", icon: Users, perm: "staff.manage", group: "admin" },
   { href: "/admin/audit", label: "Audit log", icon: ShieldCheck, perm: "staff.manage", group: "admin" },
@@ -60,7 +59,7 @@ export async function PortalShell({ ctx, children }: { ctx: StaffContext; childr
         </div>
       </aside>
       <div className="min-w-0">
-        {sim && <div className="bg-ink px-4 py-1.5 text-center text-xs font-semibold text-brand-orange">DEMO MODE: payments and refunds are simulated (no Paystack keys configured).</div>}
+        {sim && <div className="bg-ink px-4 py-1.5 text-center text-xs font-semibold text-brand-orange">DEMO MODE: payments are simulated (no Paystack keys configured).</div>}
         <div className="flex items-center justify-between gap-2 border-b border-line bg-white px-4 py-2 text-xs text-ink-3 lg:hidden">
           <span className="truncate">{ctx.name} · {ROLE_LABELS[ctx.role]} · {scope}</span>
           <form action={staffSignOut}><button className="font-semibold text-brand-red">Sign out</button></form>

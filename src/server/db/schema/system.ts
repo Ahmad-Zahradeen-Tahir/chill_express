@@ -84,7 +84,7 @@ export const rateLimit = pgTable("rate_limit", {
 
 /** Backing store for the clearly-labelled payment SIMULATOR only (PAYMENTS_DRIVER=dev-sim). Never used with Paystack. */
 export const devSimRecord = pgTable("dev_sim_record", {
-  key: text("key").primaryKey(), // "txn:<reference>" or "refund:<id>"
+  key: text("key").primaryKey(), // "txn:<reference>"
   data: jsonb("data").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

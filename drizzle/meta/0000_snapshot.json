@@ -1,5 +1,5 @@
 {
-  "id": "d734ebd4-286c-4e70-87f6-6fde153c154e",
+  "id": "989a86ca-3aca-48c0-b056-7df1efed8d04",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1518,13 +1518,6 @@
           "notNull": true,
           "default": 0
         },
-        "refunded_kobo": {
-          "name": "refunded_kobo",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
         "status": {
           "name": "status",
           "type": "order_status",
@@ -1556,12 +1549,6 @@
         },
         "staff_note": {
           "name": "staff_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rejection_reason": {
-          "name": "rejection_reason",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1722,7 +1709,7 @@
       "checkConstraints": {
         "order_amounts_nonneg": {
           "name": "order_amounts_nonneg",
-          "value": "\"order\".\"total_kobo\" >= 0 AND \"order\".\"paid_kobo\" >= 0 AND \"order\".\"refunded_kobo\" >= 0"
+          "value": "\"order\".\"total_kobo\" >= 0 AND \"order\".\"paid_kobo\" >= 0"
         }
       },
       "isRLSEnabled": false
@@ -2270,184 +2257,6 @@
         "payment_amount_pos": {
           "name": "payment_amount_pos",
           "value": "\"payment\".\"amount_kobo\" > 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.refund": {
-      "name": "refund",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "order_id": {
-          "name": "order_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "payment_id": {
-          "name": "payment_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "amount_kobo": {
-          "name": "amount_kobo",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reason": {
-          "name": "reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "refund_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'PENDING'"
-        },
-        "provider_refund_id": {
-          "name": "provider_refund_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "failure_reason": {
-          "name": "failure_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "initiated_by_user_id": {
-          "name": "initiated_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "submitted_at": {
-          "name": "submitted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "refunded_at": {
-          "name": "refunded_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "raw": {
-          "name": "raw",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "refund_order_idx": {
-          "name": "refund_order_idx",
-          "columns": [
-            {
-              "expression": "order_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "refund_status_idx": {
-          "name": "refund_status_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "refund_order_id_order_id_fk": {
-          "name": "refund_order_id_order_id_fk",
-          "tableFrom": "refund",
-          "tableTo": "order",
-          "columnsFrom": [
-            "order_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "refund_payment_id_payment_id_fk": {
-          "name": "refund_payment_id_payment_id_fk",
-          "tableFrom": "refund",
-          "tableTo": "payment",
-          "columnsFrom": [
-            "payment_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "refund_initiated_by_user_id_user_id_fk": {
-          "name": "refund_initiated_by_user_id_user_id_fk",
-          "tableFrom": "refund",
-          "tableTo": "user",
-          "columnsFrom": [
-            "initiated_by_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "refund_amount_pos": {
-          "name": "refund_amount_pos",
-          "value": "\"refund\".\"amount_kobo\" > 0"
         }
       },
       "isRLSEnabled": false
@@ -3078,7 +2887,6 @@
       "values": [
         "APPLIED",
         "AWAITING_PAYMENT",
-        "REFUND_ISSUED",
         "CANCELLED"
       ]
     },
@@ -3095,9 +2903,7 @@
       "schema": "public",
       "values": [
         "UNPAID",
-        "PAID",
-        "PARTIALLY_REFUNDED",
-        "REFUNDED"
+        "PAID"
       ]
     },
     "public.order_status": {
@@ -3113,9 +2919,7 @@
         "PREPARING",
         "READY_FOR_PICKUP",
         "OUT_FOR_DELIVERY",
-        "COMPLETED",
-        "REJECTED",
-        "CANCELLED"
+        "COMPLETED"
       ]
     },
     "public.order_type": {
@@ -3151,16 +2955,6 @@
         "SUCCESS",
         "FAILED",
         "ABANDONED"
-      ]
-    },
-    "public.refund_status": {
-      "name": "refund_status",
-      "schema": "public",
-      "values": [
-        "PENDING",
-        "PROCESSING",
-        "REFUNDED",
-        "FAILED"
       ]
     }
   },
