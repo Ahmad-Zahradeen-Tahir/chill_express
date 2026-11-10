@@ -420,7 +420,6 @@ async function main() {
             customerEmail:
               cust?.email ?? `guest${between(1, 99)}@demo.chillexpress.local`,
             type,
-            pickupTime: type === "PICKUP" ? "ASAP" : null,
             subtotalKobo: subtotal,
             deliveryFeeKobo: fee,
             totalKobo: total,

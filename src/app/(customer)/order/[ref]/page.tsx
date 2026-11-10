@@ -112,7 +112,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             {d.delivery.landmark && <p className="text-ink-3">Landmark: {d.delivery.landmark}</p>}
           </div>
         )}
-        {o.type === "PICKUP" && o.pickupTime && <p className="mt-4 flex items-center gap-2 text-sm"><Clock className="size-4" /> Pickup: {o.pickupTime === "ASAP" ? "As soon as possible" : o.pickupTime}</p>}
+        {o.type === "PICKUP" && <p className="mt-4 flex items-center gap-2 text-sm"><Clock className="size-4" /> Pickup: as soon as possible</p>}
       </div>
 
       <div className="mt-6 text-sm text-ink-3">

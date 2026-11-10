@@ -29,12 +29,6 @@ export const checkoutSchema = z
     customerName: z.string().trim().min(2, "Enter your name").max(80),
     customerPhone: z.string().trim().regex(phoneRe, "Enter a valid phone number"),
     customerEmail: z.string().trim().toLowerCase().email("Enter a valid email (Paystack sends your receipt here)").max(120),
-    pickupTime: z
-      .string()
-      .trim()
-      .regex(/^(ASAP|([01]\d|2[0-3]):[0-5]\d)$/)
-      .optional()
-      .nullable(),
     address: z.string().trim().max(300).optional().nullable(),
     landmark: z.string().trim().max(200).optional().nullable(),
     instructions: z.string().trim().max(500).optional().nullable(),
@@ -107,7 +101,6 @@ export async function createOrderAndStartPayment(input: CheckoutInput, customerU
         customerPhone: input.customerPhone,
         customerEmail: input.customerEmail,
         type: input.type,
-        pickupTime: input.type === "PICKUP" ? (input.pickupTime ?? "ASAP") : null,
         subtotalKobo: priced.subtotalKobo,
         deliveryFeeKobo: priced.deliveryFeeKobo,
         totalKobo: priced.totalKobo,

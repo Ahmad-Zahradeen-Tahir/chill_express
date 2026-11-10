@@ -84,7 +84,7 @@ export default async function StaffOrderDetail({ params }: { params: Promise<{ i
 
           {canModify && (
             <ModifyOrder
-              order={{ id: o.id, type: o.type, customerName: o.customerName, customerPhone: o.customerPhone, customerEmail: o.customerEmail, pickupTime: o.pickupTime, totalKobo: o.totalKobo, deliveryFeeKobo: o.deliveryFeeKobo }}
+              order={{ id: o.id, type: o.type, customerName: o.customerName, customerPhone: o.customerPhone, customerEmail: o.customerEmail, totalKobo: o.totalKobo, deliveryFeeKobo: o.deliveryFeeKobo }}
               delivery={d.delivery}
               items={d.items.map((i) => ({ id: i.id, productId: i.productId, name: i.productName, options: describeOptions(i.options), optionIds: i.options.map((x) => x.optionId), unitPriceKobo: i.unitPriceKobo, quantity: i.quantity }))}
               menu={menu}
@@ -125,7 +125,7 @@ export default async function StaffOrderDetail({ params }: { params: Promise<{ i
             <a href={`tel:${o.customerPhone.replace(/[^\d+]/g, "")}`} className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-red"><Phone className="size-4" /> {o.customerPhone}</a>
             {o.customerEmail && <p className="text-sm text-ink-3">{o.customerEmail}</p>}
             <p className="mt-1 text-xs text-ink-3">{o.customerUserId ? "Registered customer" : "Guest checkout"}</p>
-            {o.type === "PICKUP" && <p className="mt-3 text-sm"><strong>Pickup:</strong> {o.pickupTime === "ASAP" || !o.pickupTime ? "As soon as possible" : o.pickupTime}</p>}
+            {o.type === "PICKUP" && <p className="mt-3 text-sm"><strong>Pickup:</strong> As soon as possible</p>}
             {d.delivery && (
               <div className="mt-3 rounded-xl bg-paper p-3 text-sm">
                 <p className="font-semibold">Delivery address</p>

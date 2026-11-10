@@ -38,7 +38,6 @@ export const order = pgTable(
     customerPhone: text("customer_phone").notNull(),
     customerEmail: text("customer_email"),
     type: orderTypeEnum("type").notNull(),
-    pickupTime: text("pickup_time"), // "ASAP" or "HH:MM"
     subtotalKobo: integer("subtotal_kobo").notNull(),
     deliveryFeeKobo: integer("delivery_fee_kobo").notNull().default(0),
     totalKobo: integer("total_kobo").notNull(),

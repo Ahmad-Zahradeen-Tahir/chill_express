@@ -14,7 +14,6 @@ export type ModificationAfter = {
   customerPhone: string;
   customerEmail: string | null;
   delivery: { address: string; landmark: string | null; instructions: string | null } | null;
-  pickupTime: string | null;
 };
 
 export async function applyModificationAfter(tx: Tx, orderId: string, after: ModificationAfter) {
@@ -42,7 +41,6 @@ export async function applyModificationAfter(tx: Tx, orderId: string, after: Mod
       customerName: after.customerName,
       customerPhone: after.customerPhone,
       customerEmail: after.customerEmail,
-      pickupTime: after.pickupTime,
       updatedAt: new Date(),
     })
     .where(eq(order.id, orderId));

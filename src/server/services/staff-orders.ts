@@ -71,7 +71,6 @@ export const modifySchema = z.object({
   customerName: z.string().trim().min(2).max(80),
   customerPhone: z.string().trim().min(7).max(20),
   customerEmail: z.string().trim().toLowerCase().email().max(120).nullable(),
-  pickupTime: z.string().trim().max(10).nullable(),
   delivery: z
     .object({
       address: z.string().trim().min(5).max(300),
@@ -139,7 +138,6 @@ export async function modifyOrder(input: ModifyInput): Promise<{ outcome: "appli
     customerPhone: input.customerPhone,
     customerEmail: input.customerEmail,
     delivery: input.delivery,
-    pickupTime: o.type === "PICKUP" ? input.pickupTime || "ASAP" : null,
   };
   const before = {
     items: existingItems,
@@ -150,7 +148,6 @@ export async function modifyOrder(input: ModifyInput): Promise<{ outcome: "appli
     customerPhone: o.customerPhone,
     customerEmail: o.customerEmail,
     delivery: delivery ?? null,
-    pickupTime: o.pickupTime,
   };
   const delta = after.totalKobo - o.totalKobo;
 

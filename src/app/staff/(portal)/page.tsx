@@ -75,7 +75,7 @@ export default async function StaffQueue({ searchParams }: { searchParams: Promi
                   </div>
                   <p className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-3">
                     {o.type === "DELIVERY" ? <Bike className="size-3.5" /> : <Store className="size-3.5" />}
-                    {o.type === "DELIVERY" ? "Delivery" : `Pickup ${o.pickupTime && o.pickupTime !== "ASAP" ? "at " + o.pickupTime : "ASAP"}`} · {timeAgo(o.createdAt)}
+                    {o.type === "DELIVERY" ? "Delivery" : "Pickup ASAP"} · {timeAgo(o.createdAt)}
                     {!b && branches.length > 1 && <> · {o.branchName}</>}
                     {o.isDemo && <span className="rounded bg-ink/5 px-1 font-semibold">DEMO</span>}
                   </p>
