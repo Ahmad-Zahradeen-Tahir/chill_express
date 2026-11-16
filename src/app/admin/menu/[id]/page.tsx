@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, eq, inArray } from "drizzle-orm";
@@ -18,6 +17,7 @@ import {
   saveProduct,
 } from "@/app/actions/menu-admin";
 import { ActionForm, Check } from "@/components/admin/forms";
+import { PhotoPicker } from "@/components/admin/photo-picker";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/form";
 import { DeleteGroup, DeleteOption } from "./deletes";
@@ -151,34 +151,7 @@ export default async function ProductEditor({
                 />
               </div>
             </div>
-            <div>
-              <div className="relative aspect-square overflow-hidden rounded-2xl bg-orange-100">
-                {p?.imageUrl && (
-                  <Image
-                    src={p.imageUrl}
-                    alt=""
-                    fill
-                    sizes="220px"
-                    className="object-cover"
-                  />
-                )}
-              </div>
-              <Field label="Photo (JPG/PNG/WebP, max 4 MB)" className="mt-2">
-                <input
-                  name="image"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="block w-full text-xs"
-                />
-              </Field>
-              <div className="mt-2">
-                <Check
-                  name="illustrative"
-                  label="Mark as illustrative (not the exact item)"
-                  defaultChecked={p?.imageIsIllustrative ?? true}
-                />
-              </div>
-            </div>
+            <PhotoPicker currentUrl={p?.imageUrl ?? null} />
           </div>
         </ActionForm>
       </Card>

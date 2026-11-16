@@ -13,13 +13,10 @@ function fromPrice(p: MenuProduct) {
   return p.basePriceKobo + p.groups.filter((g) => g.required).reduce((s, g) => s + Math.min(...g.options.map((o) => o.priceDeltaKobo), 0), 0);
 }
 
-export function ProductImage({ p, sizes, className }: { p: Pick<MenuProduct, "imageUrl" | "imageIsIllustrative" | "name">; sizes: string; className?: string }) {
+export function ProductImage({ p, sizes, className }: { p: Pick<MenuProduct, "imageUrl" | "name">; sizes: string; className?: string }) {
   return (
     <div className={cn("relative overflow-hidden bg-orange-100", className)}>
       {p.imageUrl && <Image src={p.imageUrl} alt={p.name} fill sizes={sizes} className="object-cover" />}
-      {p.imageIsIllustrative && p.imageUrl && !p.imageUrl.endsWith(".svg") && (
-        <span className="absolute bottom-2 left-2 rounded-full bg-ink/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Illustrative photo</span>
-      )}
     </div>
   );
 }

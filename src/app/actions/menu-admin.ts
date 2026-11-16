@@ -71,7 +71,6 @@ export async function saveProduct(id: string | null, _: R, form: FormData): Prom
     featured: bool(form.get("featured")),
     popular: bool(form.get("popular")),
     active: bool(form.get("active")),
-    imageIsIllustrative: imageUrl ? bool(form.get("illustrative")) : bool(form.get("illustrative")),
     ...(imageUrl ? { imageUrl } : {}),
     updatedAt: new Date(),
   };

@@ -15,6 +15,13 @@
       "when": 1794341461078,
       "tag": "0001_drop_pickup_time",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794508734579,
+      "tag": "0002_drop_image_illustrative",
+      "breakpoints": true
     }
   ]
 }

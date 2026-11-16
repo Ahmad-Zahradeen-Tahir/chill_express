@@ -161,7 +161,6 @@ async function main() {
           slug: p.slug,
           description: p.description,
           imageUrl: p.image,
-          imageIsIllustrative: p.illustrative,
           basePriceKobo: K(p.price),
           featured: !!p.featured,
           sortOrder: pSort++,

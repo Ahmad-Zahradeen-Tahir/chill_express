@@ -12,8 +12,6 @@ export type SeedProduct = {
   price: number;
   description: string | null;
   image: string;
-  /** true = representative/stock photo or placeholder, not this exact item */
-  illustrative: boolean;
   featured?: boolean;
   groups?: SeedGroup[];
 };
@@ -34,7 +32,6 @@ export const MENU: SeedCategory[] = [
         price: 3000, // Regular Size
         description: "Beef or chicken. Choose your size.",
         image: `${P}/shawarma.svg`,
-        illustrative: true,
         featured: true,
         groups: [
           {
@@ -68,9 +65,9 @@ export const MENU: SeedCategory[] = [
     slug: "burgers",
     description: null,
     products: [
-      { name: "Regular Burger", slug: "regular-burger", price: 3000, description: null, image: `${B}/burger.jpg`, illustrative: false, featured: true },
-      { name: "Cheese Burger", slug: "cheese-burger", price: 4000, description: null, image: `${B}/burger.jpg`, illustrative: true },
-      { name: "Double Decker", slug: "double-decker", price: 6000, description: null, image: `${P}/burger.svg`, illustrative: true },
+      { name: "Regular Burger", slug: "regular-burger", price: 3000, description: null, image: `${B}/burger.jpg`, featured: true },
+      { name: "Cheese Burger", slug: "cheese-burger", price: 4000, description: null, image: `${B}/burger.jpg` },
+      { name: "Double Decker", slug: "double-decker", price: 6000, description: null, image: `${P}/burger.svg` },
     ],
   },
   {
@@ -84,7 +81,6 @@ export const MENU: SeedCategory[] = [
         price: 3000,
         description: "Loaded fries, regular box.",
         image: `${B}/loaded-fries.jpg`,
-        illustrative: false,
         groups: [{ name: "Extras", required: false, min: 0, max: 1, options: [{ name: "With Cheese", delta: 500 }] }], // ₦3,500
       },
       {
@@ -93,7 +89,6 @@ export const MENU: SeedCategory[] = [
         price: 4000,
         description: "Loaded fries, mega box.",
         image: `${B}/loaded-fries-slush.jpg`,
-        illustrative: true,
         featured: true,
         groups: [{ name: "Extras", required: false, min: 0, max: 1, options: [{ name: "With Cheese", delta: 500 }] }], // ₦4,500
       },
@@ -103,7 +98,6 @@ export const MENU: SeedCategory[] = [
         price: 6000,
         description: "Our biggest loaded fries.",
         image: `${P}/fries.svg`,
-        illustrative: true,
         groups: [{ name: "Extras", required: false, min: 0, max: 1, options: [{ name: "With Cheese", delta: 500 }] }], // ₦6,500
       },
     ],
@@ -113,10 +107,10 @@ export const MENU: SeedCategory[] = [
     slug: "beverages",
     description: null,
     products: [
-      { name: "Premium Flavors", slug: "premium-flavors", price: 3000, description: null, image: `${P}/drink.svg`, illustrative: true },
-      { name: "Soda", slug: "soda", price: 1500, description: null, image: `${P}/drink.svg`, illustrative: true },
-      { name: "Ice Cream", slug: "ice-cream", price: 2500, description: null, image: `${P}/ice-cream.svg`, illustrative: true },
-      { name: "Frosty Chillerz", slug: "frosty-chillerz", price: 3000, description: null, image: `${B}/store-slush.jpg`, illustrative: true, featured: true },
+      { name: "Premium Flavors", slug: "premium-flavors", price: 3000, description: null, image: `${P}/drink.svg` },
+      { name: "Soda", slug: "soda", price: 1500, description: null, image: `${P}/drink.svg` },
+      { name: "Ice Cream", slug: "ice-cream", price: 2500, description: null, image: `${P}/ice-cream.svg` },
+      { name: "Frosty Chillerz", slug: "frosty-chillerz", price: 3000, description: null, image: `${B}/store-slush.jpg`, featured: true },
     ],
   },
 ];

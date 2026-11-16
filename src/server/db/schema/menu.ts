@@ -24,7 +24,6 @@ export const product = pgTable(
     slug: text("slug").notNull().unique(),
     description: text("description"),
     imageUrl: text("image_url"),
-    imageIsIllustrative: boolean("image_is_illustrative").notNull().default(false),
     basePriceKobo: integer("base_price_kobo").notNull(),
     featured: boolean("featured").notNull().default(false),
     popular: boolean("popular").notNull().default(false),

@@ -10,7 +10,6 @@ export type MenuProduct = {
   name: string;
   description: string | null;
   imageUrl: string | null;
-  imageIsIllustrative: boolean;
   basePriceKobo: number;
   featured: boolean;
   popular: boolean;
@@ -126,7 +125,6 @@ export async function getMenu(branchId: string | null): Promise<MenuCategory[]> 
         name: p.name,
         description: p.description,
         imageUrl: p.imageUrl,
-        imageIsIllustrative: p.imageIsIllustrative,
         basePriceKobo: p.basePriceKobo,
         featured: p.featured,
         popular: p.popular,
