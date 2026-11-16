@@ -113,7 +113,9 @@ test("menu price changes go live and are server-enforced", async ({ browser }) =
   // restore official price
   await price.fill("1500");
   await ceo.getByRole("button", { name: "Save product" }).click();
-  await expect(ceo.getByText("Saved.")).toBeVisible();
-  await customer.reload();
-  await expect(customer.getByRole("article").filter({ hasText: "Soda" })).toContainText("₦1,500");
+  // "Saved." is still showing from the first save, so retry until the restored price is live.
+  await expect(async () => {
+    await customer.reload();
+    await expect(customer.getByRole("article").filter({ hasText: "Soda" })).toContainText("₦1,500", { timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
 });

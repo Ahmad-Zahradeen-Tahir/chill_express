@@ -132,3 +132,12 @@ export async function markRead(ctx: StaffContext, ids: string[]) {
     .returning({ id: notificationRead.notificationId });
   return res.length;
 }
+
+/** Clear the "New paid order" notification for one order from this user's inbox (cashier pressed Okay on its popup). */
+export async function markNewOrderRead(ctx: StaffContext, orderId: string) {
+  const rows = await db
+    .select({ id: notification.id })
+    .from(notification)
+    .where(and(visibilityFilter(ctx), eq(notification.orderId, orderId), eq(notification.type, "order.new_paid")));
+  return markRead(ctx, rows.map((r) => r.id));
+}

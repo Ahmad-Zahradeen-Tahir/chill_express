@@ -47,7 +47,7 @@ export default async function StaffQueue({ searchParams }: { searchParams: Promi
           <h1 className="font-display text-5xl font-extrabold uppercase leading-none">Live queue</h1>
           <p className="text-sm text-ink-3">Paid orders only. New orders must be approved before the kitchen starts. Updates every few seconds.</p>
         </div>
-        <NewOrderAlert pendingIds={cols[0].orders.map((o) => o.id)} />
+        <NewOrderAlert pendingIds={cols[0].orders.map((o) => o.id)} silent={ctx.role === "CASHIER"} />
       </div>
       <div className="mt-4"><BranchTabs branches={branches} current={b} base="/staff" /></div>
       <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">

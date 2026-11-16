@@ -1,9 +1,13 @@
 "use client";
 import { BellRing, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { chime, unlockAudio } from "@/lib/client/order-sound";
 
-/** Plays a chime and flashes the tab title when the number of orders awaiting approval goes up. */
-export function NewOrderAlert({ pendingIds }: { pendingIds: string[] }) {
+/**
+ * Plays a chime and flashes the tab title when the number of orders awaiting approval goes up.
+ * `silent` (cashiers) skips the chime and hides the toggle: their new-order popups always ring.
+ */
+export function NewOrderAlert({ pendingIds, silent = false }: { pendingIds: string[]; silent?: boolean }) {
   const seen = useRef<Set<string> | null>(null);
   const sound = useSyncExternalStore(subscribeSound, readSound, () => false);
   const [flash, setFlash] = useState(0);
@@ -17,13 +21,13 @@ export function NewOrderAlert({ pendingIds }: { pendingIds: string[] }) {
     pendingIds.forEach((id) => seen.current!.add(id));
     if (fresh.length) {
       setFlash(fresh.length);
-      if (sound) chime();
+      if (sound && !silent) chime();
       const orig = document.title;
       document.title = `(${fresh.length}) NEW ORDER · Chill. Express`;
       const t = setTimeout(() => (document.title = orig), 8000);
       return () => clearTimeout(t);
     }
-  }, [pendingIds, sound]);
+  }, [pendingIds, sound, silent]);
 
   function toggle() {
     const next = !sound;
@@ -31,7 +35,7 @@ export function NewOrderAlert({ pendingIds }: { pendingIds: string[] }) {
       localStorage.setItem("ce-sound", next ? "1" : "0");
     } catch {}
     window.dispatchEvent(new Event("ce-sound"));
-    if (next) chime();
+    if (next) unlockAudio().then(chime);
   }
 
   return (
@@ -41,9 +45,9 @@ export function NewOrderAlert({ pendingIds }: { pendingIds: string[] }) {
           <BellRing className="size-4" /> {flash} new order{flash > 1 ? "s" : ""}
         </span>
       )}
-      <button onClick={toggle} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold ring-1 ring-line" aria-pressed={sound}>
+      {!silent && <button onClick={toggle} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold ring-1 ring-line" aria-pressed={sound}>
         {sound ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />} Sound {sound ? "on" : "off"}
-      </button>
+      </button>}
     </div>
   );
 }
@@ -62,23 +66,4 @@ function readSound() {
   } catch {
     return false;
   }
-}
-
-function chime() {
-  try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctx();
-    [880, 1175, 1568].forEach((f, i) => {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.frequency.value = f;
-      o.type = "sine";
-      g.gain.setValueAtTime(0.0001, ctx.currentTime + i * 0.15);
-      g.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + i * 0.15 + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.15 + 0.4);
-      o.connect(g).connect(ctx.destination);
-      o.start(ctx.currentTime + i * 0.15);
-      o.stop(ctx.currentTime + i * 0.15 + 0.45);
-    });
-  } catch {}
 }

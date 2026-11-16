@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { PortalShell } from "@/components/portal/shell";
+import { NewOrderPopups } from "@/components/portal/new-order-popups";
 import { requireStaffPage } from "@/server/auth/guard";
 import { db } from "@/server/db";
 import { user } from "@/server/db/schema";
@@ -18,6 +19,7 @@ export default async function StaffLayout({ children }: { children: React.ReactN
         </div>
       )}
       {children}
+      {ctx.role === "CASHIER" && ctx.permissions.has("orders.view") && <NewOrderPopups userId={ctx.userId} />}
     </PortalShell>
   );
 }

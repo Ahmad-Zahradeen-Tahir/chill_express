@@ -16,6 +16,7 @@
     "reconcile": "node --env-file=.env.local --import tsx scripts/reconcile.ts",
     "demo:setup": "npm run db:migrate && npm run db:seed",
     "demo:start": "next build && bash scripts/start-prod.sh",
+    "demo:lan": "bash scripts/start-lan.sh",
     "test:e2e": "playwright test"
   },
   "dependencies": {

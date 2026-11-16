@@ -7,7 +7,7 @@ import { AuthzError, requirePermission, getStaff } from "@/server/auth/guard";
 import { modifyOrder, modifySchema, OrderActionError, performStaffAction, withdrawModification } from "@/server/services/staff-orders";
 import type { StaffAction } from "@/server/services/order-state";
 import { reconcilePayments, confirmPayment } from "@/server/services/payments";
-import { markAllRead, markRead, unreadCount } from "@/server/services/notifications";
+import { markAllRead, markNewOrderRead, markRead, unreadCount } from "@/server/services/notifications";
 import { z } from "zod";
 import { PaymentProviderError } from "@/server/paystack/provider";
 
@@ -93,6 +93,17 @@ export async function openNotification(id: string): Promise<number> {
   const parsed = z.uuid().safeParse(id);
   if (!parsed.success) return 0;
   const n = await markRead(ctx, [parsed.data]);
+  if (n) revalidatePath("/staff", "layout");
+  return n;
+}
+
+/** Cashier pressed Okay on a new-order popup: that order's "New paid order" notification is cleared too. */
+export async function acknowledgeNewOrder(orderId: string): Promise<number> {
+  const ctx = await getStaff();
+  if (!ctx) return 0;
+  const parsed = z.uuid().safeParse(orderId);
+  if (!parsed.success) return 0;
+  const n = await markNewOrderRead(ctx, parsed.data);
   if (n) revalidatePath("/staff", "layout");
   return n;
 }

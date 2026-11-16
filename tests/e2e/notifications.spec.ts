@@ -13,7 +13,8 @@ async function newPaidOrder(page: Page) {
 
 test("notifications: viewing does not clear, clicking clears one, Mark all read clears all", async ({ browser }) => {
   const staff = await browser.newPage();
-  await staffLogin(staff, "gombole.cashier@demo.chillexpress.local");
+  // A manager: cashiers clear new-order notifications from their popups (see new-order-popups.spec.ts).
+  await staffLogin(staff, "gombole.manager@demo.chillexpress.local");
   await staff.goto("/staff/notifications");
   if (await staff.getByRole("button", { name: "Mark all read" }).count()) await staff.getByRole("button", { name: "Mark all read" }).click();
   await expect(staff.getByText("You're all caught up")).toBeVisible();
