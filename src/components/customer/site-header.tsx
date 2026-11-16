@@ -20,7 +20,7 @@ export async function SiteHeader() {
         </nav>
         <div className="ml-auto flex min-w-0 items-center gap-2">
           <div className="min-w-0 max-w-[46vw] sm:max-w-none">
-            <BranchPicker branches={branches.map((b) => ({ id: b.id, name: b.name, address: b.address, blockReason: b.blockReason }))} selectedId={selectedId} />
+            <BranchPicker branches={branches.map((b) => ({ id: b.id, name: b.name, address: b.address, blockReason: b.blockReason }))} selectedId={selectedId} prompt />
           </div>
           <Link href={user && user.role === "CUSTOMER" ? "/account" : "/login"} className="hidden size-10 place-items-center rounded-full bg-white/90 text-ink ring-1 ring-ink/10 hover:bg-white sm:grid" aria-label={user ? "My account" : "Sign in"}>
             <User className="size-5" />

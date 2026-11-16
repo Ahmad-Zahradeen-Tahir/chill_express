@@ -11,8 +11,12 @@ export const env = Object.fromEntries(
 
 export async function chooseBranch(page: Page, name: "Gombole Road" | "Lagos Street") {
   await page.goto("/menu");
-  await page.getByRole("button", { name: /Choose branch|Gombole Road|Lagos Street/ }).first().click();
-  await page.getByRole("dialog", { name: "Choose a branch" }).getByRole("button", { name: new RegExp(name) }).click();
+  const dialog = page.getByRole("dialog", { name: "Choose a branch" });
+  // First visit: the branch prompt opens by itself. Otherwise open it from the header.
+  await expect(dialog)
+    .toBeVisible({ timeout: 3000 })
+    .catch(() => page.getByRole("button", { name: /Choose branch|Gombole Road|Lagos Street/ }).first().click());
+  await dialog.getByRole("button", { name: new RegExp(name) }).click();
   await expect(page.getByText(`Ordering from ${name}`)).toBeVisible();
 }
 

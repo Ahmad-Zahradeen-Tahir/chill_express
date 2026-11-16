@@ -1,16 +1,36 @@
 "use client";
 import { MapPin, ChevronDown, X, Check } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, useSyncExternalStore, useTransition } from "react";
 import { selectBranch } from "@/app/actions/branch";
 import { useCart, useCartHydrated } from "@/lib/client/cart-store";
 import { cn } from "@/lib/cn";
 
 export type PickerBranch = { id: string; name: string; address: string | null; blockReason: string | null };
 
-export function BranchPicker({ branches, selectedId, variant = "chip" }: { branches: PickerBranch[]; selectedId: string | null; variant?: "chip" | "big" }) {
+// Pages where a customer is following up on an order, not starting one: no automatic prompt there.
+const NO_PROMPT = ["/track", "/order", "/login", "/register", "/account"];
+const DISMISSED_KEY = "ce_branch_prompt_dismissed";
+const noSubscribe = () => () => {};
+function readDismissed() {
+  try {
+    return sessionStorage.getItem(DISMISSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Branch chooser. With `prompt`, it opens by itself when no branch is chosen yet (once per visit unless
+ * the customer picks one), and whenever an "Add" button needs a branch first.
+ */
+export function BranchPicker({ branches, selectedId, variant = "chip", prompt = false }: { branches: PickerBranch[]; selectedId: string | null; variant?: "chip" | "big"; prompt?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [dismissedNow, setDismissedNow] = useState(false);
+  // The server renders as "dismissed" so the prompt only appears after hydration.
+  const dismissedEarlier = useSyncExternalStore(noSubscribe, readDismissed, () => true);
   const router = useRouter();
+  const pathname = usePathname();
   const [pending, start] = useTransition();
   const cart = useCart();
   const hydrated = useCartHydrated();
@@ -20,6 +40,26 @@ export function BranchPicker({ branches, selectedId, variant = "chip" }: { branc
     // Keep the cart's branch in sync with the cookie.
     if (hydrated && selectedId && cart.branchId !== selectedId && cart.items.length === 0) cart.setBranch(selectedId);
   }, [cart, hydrated, selectedId]);
+
+  const welcome = prompt && !selectedId && !dismissedEarlier && !dismissedNow && !NO_PROMPT.some((p) => pathname.startsWith(p));
+  const isOpen = open || welcome;
+
+  useEffect(() => {
+    if (!prompt) return;
+    const h = () => setOpen(true);
+    window.addEventListener("ce:need-branch", h);
+    return () => window.removeEventListener("ce:need-branch", h);
+  }, [prompt]);
+
+  function close() {
+    setOpen(false);
+    if (welcome) {
+      setDismissedNow(true);
+      try {
+        sessionStorage.setItem(DISMISSED_KEY, "1");
+      } catch {}
+    }
+  }
 
   function choose(id: string) {
     if (cart.items.length > 0 && cart.branchId && cart.branchId !== id) {
@@ -55,14 +95,17 @@ export function BranchPicker({ branches, selectedId, variant = "chip" }: { branc
         </button>
       )}
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/50 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Choose a branch" onClick={() => setOpen(false)}>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/50 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Choose a branch" onClick={close} onKeyDown={(e) => e.key === "Escape" && close()}>
           <div className="w-full max-w-md rounded-t-3xl bg-white p-5 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-display text-3xl font-bold">Choose your branch</h2>
-              <button onClick={() => setOpen(false)} className="grid size-10 place-items-center rounded-full hover:bg-ink/5" aria-label="Close"><X className="size-5" /></button>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                {welcome && <p className="text-xs font-bold uppercase tracking-wide text-brand-red">Welcome to Chill. Express</p>}
+                <h2 className="font-display text-3xl font-bold leading-tight">{welcome ? "Where are you ordering from?" : "Choose your branch"}</h2>
+              </div>
+              <button onClick={close} className="grid size-10 shrink-0 place-items-center rounded-full hover:bg-ink/5" aria-label="Close"><X className="size-5" /></button>
             </div>
-            <p className="mb-4 text-sm text-ink-3">Both branches are in Maiduguri. Your order is prepared at the branch you pick.</p>
+            <p className="mb-4 text-sm text-ink-3">Both branches are in Maiduguri. Pick one to see its menu and what&apos;s in stock. You can change it any time from the top of the page.</p>
             <div className="space-y-3">
               {branches.map((b) => (
                 <button
